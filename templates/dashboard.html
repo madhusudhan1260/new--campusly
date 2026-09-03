@@ -1,37 +1,136 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Campusly{% endblock %}
 {% block content %}
-  <h1 class="page-title">Hi {{ logged_in_user.name.split(' ')[0] }}</h1>
-  <p class="page-sub">What do you need today?</p>
+  <h1 class="page-title fade-up" style="--fade-delay: 0s">Hi {{ logged_in_user.name.split(' ')[0] }} 👋</h1>
+  <p class="page-sub fade-up" style="--fade-delay: 0.05s">What do you need today?</p>
 
   <div class="tiles">
-    <a class="tile fade-up" style="--fade-delay: 0s" href="{{ url_for('hackathons') }}">
+    <a class="tile mod-hack fade-up" style="--fade-delay: 0.1s" href="{{ url_for('hackathons') }}">
       <span class="tile-icon">
         <svg class="icon" viewBox="0 0 24 24"><path d="M8 21h8"></path><path d="M12 17v4"></path><path d="M7 4h10v4a5 5 0 0 1-5 5 5 5 0 0 1-5-5V4z"></path><path d="M5 4H3v2a4 4 0 0 0 4 4"></path><path d="M19 4h2v2a4 4 0 0 1-4 4"></path></svg>
       </span>
       <span class="tile-title">Hackathons</span>
-      <span class="tile-desc">Browse and post hackathons worth entering.</span>
+      <span class="tile-stat">{{ hack_stats.open }} Active Hackathon{{ '' if hack_stats.open == 1 else 's' }}</span>
+      <span class="tile-sub">{{ hack_stats.closing_soon }} closing this week</span>
+      <span class="tile-cta">Explore <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
     </a>
-    <a class="tile fade-up" style="--fade-delay: 0.06s" href="{{ url_for('internships') }}">
+    <a class="tile mod-intern fade-up" style="--fade-delay: 0.15s" href="{{ url_for('internships') }}">
       <span class="tile-icon">
         <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
       </span>
       <span class="tile-title">Internships</span>
-      <span class="tile-desc">Curated internship openings, filtered by tag.</span>
+      <span class="tile-stat">{{ intern_stats.open }} Opportunit{{ 'y' if intern_stats.open == 1 else 'ies' }}</span>
+      <span class="tile-sub">{{ intern_stats.closing_soon }} closing this week</span>
+      <span class="tile-cta">Explore <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
     </a>
-    <a class="tile fade-up" style="--fade-delay: 0.12s" href="{{ url_for('health') }}">
+    <a class="tile mod-health fade-up" style="--fade-delay: 0.2s" href="{{ url_for('health') }}">
       <span class="tile-icon">
         <svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
       </span>
       <span class="tile-title">Health</span>
-      <span class="tile-desc">Campus health resources -- coming soon.</span>
+      <span class="tile-stat">{{ doctors_available }} Doctor{{ '' if doctors_available == 1 else 's' }} Available</span>
+      <span class="tile-sub">CampusCare -- SOS, wellness &amp; appointments</span>
+      <span class="tile-cta">Get Help <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
     </a>
-    <a class="tile fade-up" style="--fade-delay: 0.18s" href="{{ url_for('lost_found') }}">
+    <a class="tile mod-lost fade-up" style="--fade-delay: 0.25s" href="{{ url_for('lost_found') }}">
       <span class="tile-icon">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
       </span>
       <span class="tile-title">Lost &amp; Found</span>
-      <span class="tile-desc">Report or claim items found around campus.</span>
+      <span class="tile-stat">{{ lost_items_available }} Active Report{{ '' if lost_items_available == 1 else 's' }}</span>
+      <span class="tile-sub">Report or claim items found on campus</span>
+      <span class="tile-cta">Search Items <svg class="icon" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>
     </a>
   </div>
+
+  <h2 class="section-title fade-up" style="--fade-delay: 0.3s">Your Campus at a Glance</h2>
+  <div class="stats-band fade-up" style="--fade-delay: 0.32s">
+    <div class="stat"><div class="value" data-count-to="{{ hack_stats.open }}">0</div><div class="label">🚀 Hackathons</div></div>
+    <div class="stat"><div class="value" data-count-to="{{ intern_stats.open }}">0</div><div class="label">💼 Internships</div></div>
+    <div class="stat"><div class="value" data-count-to="{{ doctors_available }}">0</div><div class="label">🏥 Doctors Available</div></div>
+    <div class="stat"><div class="value" data-count-to="{{ lost_items_available }}">0</div><div class="label">🔎 Lost Items</div></div>
+  </div>
+
+  <div class="dash-grid-2">
+    <section>
+      <h2 class="section-title fade-up" style="--fade-delay: 0.36s">Recent Activity</h2>
+      {% if activity %}
+        <div class="activity-list">
+          {% for a in activity %}
+            <div class="activity-item fade-up" style="--fade-delay: {{ (0.4 + loop.index0 * 0.05)|round(3) }}s">
+              <span class="activity-icon">{{ a.icon }}</span>
+              <div class="activity-body">
+                <div class="activity-label">{{ a.label }}</div>
+                <p class="activity-detail">{{ a.detail }}</p>
+              </div>
+              <span class="activity-time">{{ a.time }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="empty">Nothing's happened yet -- be the first to post something.</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2 class="section-title fade-up" style="--fade-delay: 0.36s">Quick Actions</h2>
+      <div class="quick-actions-grid fade-up" style="--fade-delay: 0.4s">
+        <a class="quick-action-btn" style="--qa-accent: var(--mod-hack)" href="{{ url_for('hackathons') }}">🚀 Find a Hackathon <svg class="icon qa-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+        <a class="quick-action-btn" style="--qa-accent: var(--mod-intern)" href="{{ url_for('internships') }}">💼 Find an Internship <svg class="icon qa-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+        <a class="quick-action-btn" style="--qa-accent: var(--mod-health)" href="{{ url_for('health') }}#book-appointment">🏥 Book Appointment <svg class="icon qa-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+        <a class="quick-action-btn" style="--qa-accent: var(--mod-lost)" href="{{ url_for('lost_found') }}">🔎 Report Lost Item <svg class="icon qa-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a>
+      </div>
+    </section>
+  </div>
+
+  {% if recommendations %}
+    <h2 class="section-title fade-up" style="--fade-delay: 0.55s">✨ Recommended for You</h2>
+    <div class="recommend-grid fade-up" style="--fade-delay: 0.58s">
+      {% for r in recommendations %}
+        <a class="recommend-card" href="{{ r.url }}">
+          <span class="recommend-icon">{{ r.icon }}</span>
+          <div class="recommend-body">
+            <div class="recommend-title">{{ r.title }}</div>
+            <div class="recommend-reason">{{ r.reason }}</div>
+          </div>
+          {% if r.match_pct %}
+            <div class="mini-ring">
+              <svg viewBox="0 0 42 42">
+                <circle class="mini-ring-track" cx="21" cy="21" r="17"></circle>
+                <circle class="mini-ring-progress" cx="21" cy="21" r="17" stroke-dasharray="106.8" stroke-dashoffset="106.8" data-offset="{{ (106.8 - (106.8 * r.match_pct / 100))|round(2) }}"></circle>
+              </svg>
+              <span class="mini-ring-label">{{ r.match_pct }}%</span>
+            </div>
+          {% endif %}
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <button class="ai-fab" id="ai-fab" type="button">✨ Ask Campusly</button>
+  <div class="ai-panel" id="ai-panel">
+    <div class="ai-panel-head">
+      <span>✨ Campusly AI</span>
+      <button class="ai-panel-close" id="ai-panel-close" type="button" aria-label="Close">×</button>
+    </div>
+    <div class="ai-panel-body" id="ai-panel-body">
+      <p class="ai-greeting">Hi {{ logged_in_user.name.split(' ')[0] }} 👋 What can I help you with?</p>
+      <div class="ai-quick-replies">
+        <a class="ai-quick-reply" href="{{ url_for('hackathons') }}">Find hackathons</a>
+        <a class="ai-quick-reply" href="{{ url_for('internships') }}">Find internships</a>
+        <a class="ai-quick-reply" href="{{ url_for('health') }}#book-appointment">Book health appointment</a>
+        <a class="ai-quick-reply" href="{{ url_for('lost_found') }}">Find lost item</a>
+      </div>
+      <div class="ai-log" id="ai-log"></div>
+      {% if not ai_ready %}<p class="hint">Add GEMINI_API_KEY to .env to enable free-text questions.</p>{% endif %}
+    </div>
+    <form class="ai-panel-foot" id="ai-form">
+      <input type="text" id="ai-input" placeholder="Ask Campusly…" maxlength="500" {{ 'disabled' if not ai_ready else '' }}>
+      <button type="submit" {{ 'disabled' if not ai_ready else '' }} aria-label="Send">➤</button>
+    </form>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='dashboard.js') }}"></script>
 {% endblock %}

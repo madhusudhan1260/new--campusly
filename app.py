@@ -154,12 +154,158 @@ def logout():
 
 # ---------------------------------------------------------------------------
 # Dashboard
+#
+# Every number here comes straight from the database -- open opportunity
+# counts, doctors, lost items -- nothing is a placeholder. "Recommended for
+# you" only shows a match percentage when it's a real one, computed from
+# categories the student has actually bookmarked; with no bookmarks yet it
+# falls back to "closing soon" / "recently posted" rather than inventing a
+# number that would look personalized but isn't.
 # ---------------------------------------------------------------------------
+
+def _relative_time(dt: datetime) -> str:
+    seconds = (datetime.utcnow() - dt).total_seconds()
+    if seconds < 60:
+        return "Just now"
+    if seconds < 3600:
+        minutes = int(seconds // 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    if seconds < 86400:
+        hours = int(seconds // 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    days = int(seconds // 86400)
+    if days == 1:
+        return "Yesterday"
+    if days < 7:
+        return f"{days} days ago"
+    return dt.strftime("%d %b")
+
+
+def _dashboard_activity(limit: int = 6) -> list[dict]:
+    events = []
+    for op in Opportunity.query.order_by(Opportunity.created_at.desc()).limit(4).all():
+        events.append(
+            {
+                "icon": "🚀" if op.kind == "hackathon" else "💼",
+                "label": "New hackathon posted" if op.kind == "hackathon" else "New internship posted",
+                "detail": op.title,
+                "time": _relative_time(op.created_at),
+                "ts": op.created_at,
+            }
+        )
+    for item in Item.query.order_by(Item.created_at.desc()).limit(3).all():
+        events.append(
+            {
+                "icon": "🔎",
+                "label": "New Lost & Found report",
+                "detail": item.name,
+                "time": _relative_time(item.created_at),
+                "ts": item.created_at,
+            }
+        )
+    for doc in Doctor.query.filter_by(available=True).order_by(Doctor.created_at.desc()).limit(2).all():
+        events.append(
+            {
+                "icon": "🏥",
+                "label": "Doctor available",
+                "detail": f"{doc.name} is available now.",
+                "time": _relative_time(doc.created_at),
+                "ts": doc.created_at,
+            }
+        )
+    events.sort(key=lambda e: e["ts"], reverse=True)
+    return events[:limit]
+
+
+def _dashboard_recommendations() -> list[dict]:
+    user = current_user()
+    my_categories: set[str] = set()
+    for op in Opportunity.query.join(Bookmark, Bookmark.opportunity_id == Opportunity.id).filter(
+        Bookmark.user_id == user.id
+    ):
+        my_categories.update((op.categories or "").split(","))
+    my_categories.discard("")
+
+    recs = []
+    for kind, icon, endpoint in (("hackathon", "🚀", "hackathons"), ("internship", "💼", "internships")):
+        best, best_score, best_match_pct = None, -1.0, 0
+        for op in Opportunity.query.filter_by(kind=kind, status="open").all():
+            op_cats = set((op.categories or "").split(","))
+            op_cats.discard("")
+            overlap = len(op_cats & my_categories)
+            match_pct = round(100 * overlap / len(op_cats)) if op_cats and overlap else 0
+
+            urgency = 0
+            if op.deadline:
+                days_left = (op.deadline - date.today()).days
+                urgency = max(0, 40 - days_left) if days_left >= 0 else -1000
+
+            score = match_pct * 0.6 + urgency
+            if score > best_score:
+                best, best_score, best_match_pct = op, score, match_pct
+
+        if best:
+            recs.append(
+                {
+                    "icon": icon,
+                    "title": best.title,
+                    "reason": "Matches your bookmarked interests" if best_match_pct else "Closing soon",
+                    "match_pct": best_match_pct or None,
+                    "url": url_for(endpoint),
+                }
+            )
+
+    latest_item = Item.query.filter_by(status="Available").order_by(Item.created_at.desc()).first()
+    if latest_item:
+        recs.append(
+            {
+                "icon": "🔎",
+                "title": latest_item.name,
+                "reason": "Recently reported in Lost & Found",
+                "match_pct": None,
+                "url": url_for("lost_found"),
+            }
+        )
+    return recs
+
 
 @app.route("/")
 @login_required
 def dashboard():
-    return render_template("dashboard.html")
+    return render_template(
+        "dashboard.html",
+        hack_stats=_opportunity_stats("hackathon", ("Online",)),
+        intern_stats=_opportunity_stats("internship", ("Remote",)),
+        doctors_available=Doctor.query.filter_by(available=True).count(),
+        lost_items_available=Item.query.filter_by(status="Available").count(),
+        activity=_dashboard_activity(),
+        recommendations=_dashboard_recommendations(),
+        ai_ready=bool(GEMINI_API_KEY),
+    )
+
+
+CAMPUSLY_ASSISTANT_PROMPT = (
+    "You are Campusly's in-app assistant, helping a student navigate a campus portal with "
+    "four modules: Hackathons (curated hackathon listings), Internships (curated internship "
+    "listings), Health / CampusCare (doctor appointments, emergency SOS, wellness check-ins, "
+    "blood donor network), and Lost & Found (report or claim items). Answer briefly, 2-4 "
+    "sentences, plain text, no markdown. When relevant, name which page to visit. You have no "
+    "live access to the database and cannot take actions yourself -- you can only guide the "
+    "student to the right page. If asked something unrelated to this app, say so briefly."
+)
+
+
+@app.post("/assistant/ask")
+@login_required
+def assistant_ask():
+    question = (request.form.get("question") or "").strip()[:500]
+    if not question:
+        return jsonify({"ok": False, "error": "Type a question first."}), 400
+    payload = {"contents": [{"parts": [{"text": CAMPUSLY_ASSISTANT_PROMPT + "\n\nStudent's question: " + question}]}]}
+    text, error = _gemini_text(payload)
+    if error:
+        return jsonify({"ok": False, "error": error}), 502
+    return jsonify({"ok": True, "answer": text.strip()})
 
 
 # ---------------------------------------------------------------------------
