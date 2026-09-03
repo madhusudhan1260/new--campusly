@@ -120,6 +120,10 @@ class Opportunity(db.Model):
     is_paid = db.Column(db.Boolean, nullable=True)
     duration_text = db.Column(db.String(120), nullable=True)
     eligibility = db.Column(db.String(240), nullable=True)
+    # Comma-separated specific skills (e.g. "Python, Django, REST API") --
+    # optional, admin-entered. Powers the Skill Gap checklist; without it,
+    # matching falls back to the broader category overlap only.
+    required_skills = db.Column(db.String(300), nullable=True)
 
     status = db.Column(db.String(10), nullable=False, default="open")  # open|closed
     apply_url = db.Column(db.String(500), nullable=False)
@@ -135,6 +139,11 @@ class Opportunity(db.Model):
 
     def category_labels(self) -> list[str]:
         return [CATEGORIES.get(c, c) for c in self.category_list()]
+
+    def required_skill_list(self) -> list[str]:
+        if not self.required_skills:
+            return []
+        return [s.strip() for s in self.required_skills.split(",") if s.strip()]
 
 
 class Bookmark(db.Model):

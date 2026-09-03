@@ -1,4 +1,4 @@
-{% macro opportunity_card(op, can_manage, is_bookmarked, today, index=0, match_pct=None, app_status=None, application_statuses=None, teams=None) %}
+{% macro opportunity_card(op, can_manage, is_bookmarked, today, index=0, match_pct=None, app_status=None, application_statuses=None, teams=None, skill_gap=None, ai_ready=False) %}
   <article class="op-card fade-up {{ 'op-closed' if op.status == 'closed' else '' }}" data-op-id="{{ op.id }}" style="--fade-delay: {{ (index * 0.04)|round(3) }}s">
     <div class="op-head">
       <span class="op-mode mode-{{ op.mode|lower }}">{{ op.mode }}</span>
@@ -72,6 +72,22 @@
         </select>
         {% if app_status %}<span class="app-status-badge status-{{ app_status|lower }}">{{ app_status }}</span>{% endif %}
       </div>
+    {% endif %}
+
+    {% if skill_gap %}
+      <button class="btn ghost small skill-gap-toggle-btn" type="button" data-id="{{ op.id }}">🎯 Skill gap ({{ skill_gap.pct }}%)</button>
+      <div class="skill-gap-panel" id="skill-gap-{{ op.id }}" hidden>
+        <ul class="skill-checklist">
+          {% for s in skill_gap.have %}<li class="skill-have">✓ {{ s }}</li>{% endfor %}
+          {% for s in skill_gap.missing %}<li class="skill-missing">✕ {{ s }}</li>{% endfor %}
+        </ul>
+        {% if skill_gap.missing %}<p class="hint">Skills to improve: {{ skill_gap.missing | join(', ') }}</p>{% endif %}
+      </div>
+    {% endif %}
+
+    {% if ai_ready %}
+      <button class="btn ghost small interview-prep-btn" type="button" data-id="{{ op.id }}">📝 Prepare for Interview</button>
+      <div class="interview-prep-panel" id="interview-prep-{{ op.id }}" hidden></div>
     {% endif %}
 
     {% if teams is not none %}
@@ -193,6 +209,11 @@
         <div class="field">
           <label>Eligibility</label>
           <input name="eligibility" type="text" maxlength="240" placeholder="e.g. Pre-final / final year students">
+        </div>
+        <div class="field">
+          <label>Required skills (optional, comma-separated)</label>
+          <input name="required_skills" type="text" maxlength="300" placeholder="e.g. Python, Django, REST API, Docker, AWS">
+          <span class="hint">Powers the Skill Gap checklist on this listing.</span>
         </div>
       {% endif %}
 

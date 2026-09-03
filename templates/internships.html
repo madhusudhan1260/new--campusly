@@ -27,7 +27,7 @@
   <section class="board op-board">
     {% if opportunities %}
       {% for op in opportunities %}
-        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0, match_pct=match_scores.get(op.id), app_status=my_applications.get(op.id), application_statuses=application_statuses) }}
+        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0, match_pct=match_scores.get(op.id), app_status=my_applications.get(op.id), application_statuses=application_statuses, skill_gap=skill_gaps.get(op.id), ai_ready=ai_ready) }}
       {% endfor %}
     {% else %}
       <p class="empty">No internships match these filters.</p>

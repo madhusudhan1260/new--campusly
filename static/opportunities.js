@@ -128,4 +128,77 @@
         });
     });
   });
+
+  // ------------------------------------------------------------- Skill gap
+
+  document.querySelectorAll(".skill-gap-toggle-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var panel = document.getElementById("skill-gap-" + button.getAttribute("data-id"));
+      if (panel) panel.hidden = !panel.hidden;
+    });
+  });
+
+  // -------------------------------------------------------- Interview prep
+
+  function escapeHtml(str) {
+    var div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function renderQuestionGroup(title, list) {
+    if (!list || !list.length) return "";
+    var rows = list
+      .map(function (item, i) {
+        var qid = "q-" + title.replace(/\s/g, "") + "-" + i;
+        return (
+          '<div class="interview-q">' +
+          "<p><strong>" + escapeHtml(item.q) + "</strong></p>" +
+          '<button class="btn ghost small show-answer-btn" type="button" data-target="' + qid + '">Show Answer</button>' +
+          '<p class="interview-a" id="' + qid + '" hidden>' + escapeHtml(item.a) + "</p>" +
+          "</div>"
+        );
+      })
+      .join("");
+    return '<h5>' + title + "</h5>" + rows;
+  }
+
+  document.querySelectorAll(".interview-prep-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var opId = button.getAttribute("data-id");
+      var panel = document.getElementById("interview-prep-" + opId);
+
+      if (panel.dataset.loaded === "true") {
+        panel.hidden = !panel.hidden;
+        return;
+      }
+
+      button.disabled = true;
+      button.innerHTML = '<span class="spinner"></span> Generating…';
+
+      postJson("/opportunities/" + opId + "/interview-prep").then(function (result) {
+        button.disabled = false;
+        button.textContent = "📝 Prepare for Interview";
+        if (result.ok && result.data.ok) {
+          var q = result.data.questions;
+          panel.innerHTML =
+            renderQuestionGroup("Technical", q.technical) +
+            renderQuestionGroup("HR", q.hr) +
+            renderQuestionGroup("Company", q.company);
+          panel.dataset.loaded = "true";
+          panel.hidden = false;
+          panel.querySelectorAll(".show-answer-btn").forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              var answer = document.getElementById(btn.getAttribute("data-target"));
+              answer.hidden = !answer.hidden;
+              btn.textContent = answer.hidden ? "Show Answer" : "Hide Answer";
+            });
+          });
+        } else {
+          panel.innerHTML = '<p class="msg err">' + escapeHtml((result.data && result.data.error) || "Could not generate questions.") + "</p>";
+          panel.hidden = false;
+        }
+      });
+    });
+  });
 })();

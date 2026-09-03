@@ -894,6 +894,28 @@ def _skill_match_scores(opportunities: list[Opportunity]) -> dict[int, int]:
     return scores
 
 
+def _skill_gaps(opportunities: list[Opportunity]) -> dict[int, dict]:
+    """Have/missing skill checklist, only for listings that actually list
+    required_skills -- there's no AI guessing involved, this is a plain
+    case-insensitive set comparison against the shared profile's skills."""
+    profile = Profile.query.filter_by(user_id=current_user().id).first()
+    my_skills = {s.lower() for s in profile.skill_list()} if profile else set()
+
+    gaps = {}
+    for op in opportunities:
+        required = op.required_skill_list()
+        if not required:
+            continue
+        have = [s for s in required if s.lower() in my_skills]
+        missing = [s for s in required if s.lower() not in my_skills]
+        gaps[op.id] = {
+            "have": have,
+            "missing": missing,
+            "pct": round(100 * len(have) / len(required)),
+        }
+    return gaps
+
+
 @app.route("/hackathons")
 @login_required
 def hackathons():
@@ -932,8 +954,10 @@ def internships():
         stats=_opportunity_stats("internship", ("Remote",)),
         live_internships=fetch_live_internships(),
         match_scores=_skill_match_scores(opportunities),
+        skill_gaps=_skill_gaps(opportunities),
         my_applications=my_applications,
         application_statuses=APPLICATION_STATUSES,
+        ai_ready=bool(GEMINI_API_KEY),
     )
 
 
@@ -997,6 +1021,7 @@ def create_opportunity():
         opportunity.is_paid = request.form.get("is_paid") == "on"
         opportunity.duration_text = (request.form.get("duration_text") or "").strip()[:120] or None
         opportunity.eligibility = (request.form.get("eligibility") or "").strip()[:240] or None
+        opportunity.required_skills = (request.form.get("required_skills") or "").strip()[:300] or None
 
     db.session.add(opportunity)
     db.session.commit()
@@ -1200,6 +1225,41 @@ def resume_feedback():
     if error:
         return jsonify({"ok": False, "error": error}), 502
     return jsonify({"ok": True, "feedback": text.strip()})
+
+
+@app.post("/opportunities/<int:opportunity_id>/interview-prep")
+@login_required
+def interview_prep(opportunity_id: int):
+    op = db.session.get(Opportunity, opportunity_id)
+    if op is None or op.kind != "internship":
+        return jsonify({"ok": False, "error": "Not an internship."}), 404
+
+    prompt = (
+        "Generate interview preparation questions for a student applying to this internship. "
+        f'Role: "{op.title}" at {op.organizer or "the organization"}. '
+    )
+    if op.category_labels():
+        prompt += f"Categories: {', '.join(op.category_labels())}. "
+    if op.required_skill_list():
+        prompt += f"Required skills: {', '.join(op.required_skill_list())}. "
+    if op.description:
+        prompt += f"Description: {op.description[:400]} "
+    prompt += (
+        "\n\nReturn ONLY a compact JSON object, no markdown fences, no extra text: "
+        '{"technical": [{"q": "...", "a": "..."}, ...], "hr": [{"q": "...", "a": "..."}, ...], '
+        '"company": [{"q": "...", "a": "..."}, ...]}. '
+        "3 technical questions (tied to the required skills/categories if given), 2 HR questions, "
+        "1 company-related question. Keep each answer to 2-3 sentences."
+    )
+
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    text, error = _gemini_text(payload, timeout=40)
+    if error:
+        return jsonify({"ok": False, "error": error}), 502
+    parsed = _extract_json(text)
+    if parsed is None:
+        return jsonify({"ok": False, "error": "Could not parse the AI's response."}), 502
+    return jsonify({"ok": True, "questions": parsed})
 
 
 # ---------------------------------------------------------------------------
