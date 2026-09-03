@@ -35,21 +35,24 @@
   </section>
 
   <h2 class="section-title">
-    <span class="live-dot"></span> Live from Devpost
+    <span class="live-dot"></span> Live hackathons
   </h2>
   {% if live_hackathons %}
     <section class="board op-board">
       {% for h in live_hackathons %}
         <a class="op-card live-card" href="{{ h.url }}" target="_blank" rel="noopener">
           <div class="op-head">
-            <span class="op-status-badge live-badge">Live</span>
+            <span class="op-status-badge live-badge">{{ h.source }}</span>
             <span class="op-head-right">{% if h.time_left %}<span class="op-deadline">{{ h.time_left }}</span>{% endif %}</span>
           </div>
           <h3>{{ h.title }}</h3>
           <p class="loc">{{ h.location }}</p>
           {% if h.themes %}<p class="cat">{{ h.themes | join(' · ') }}</p>{% endif %}
           <p class="desc">
-            {% if h.prize %}Prize: {{ h.prize }} · {% endif %}{{ h.registrations }} registered
+            {% if h.prize and h.registrations %}{{ h.prize }} · {{ h.registrations }} registered
+            {%- elif h.prize %}{{ h.prize }}
+            {%- elif h.registrations %}{{ h.registrations }} registered
+            {%- else %}Details on {{ h.source }}{% endif %}
           </p>
         </a>
       {% endfor %}
@@ -57,7 +60,7 @@
   {% else %}
     <p class="empty">Couldn't load live hackathons right now -- try refreshing in a bit.</p>
   {% endif %}
-  <p class="feed-credit">Sourced live from <a href="https://devpost.com/hackathons" target="_blank" rel="noopener">Devpost</a>.</p>
+  <p class="feed-credit">Sourced live from <a href="https://devpost.com/hackathons" target="_blank" rel="noopener">Devpost</a> and <a href="https://mlh.com" target="_blank" rel="noopener">Major League Hacking</a>.</p>
 {% endblock %}
 
 {% block scripts %}

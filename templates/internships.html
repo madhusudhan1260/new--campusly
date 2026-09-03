@@ -42,7 +42,7 @@
       {% for i in live_internships %}
         <a class="op-card live-card" href="{{ i.url }}" target="_blank" rel="noopener">
           <div class="op-head">
-            <span class="op-status-badge live-badge">Live</span>
+            <span class="op-status-badge live-badge">{{ i.source }}</span>
             <span class="op-head-right">{% if i.posted %}<span class="op-deadline">Posted {{ i.posted }}</span>{% endif %}</span>
           </div>
           <h3>{{ i.title }}</h3>
@@ -56,7 +56,7 @@
   {% else %}
     <p class="empty">Couldn't load live internships right now -- try refreshing in a bit.</p>
   {% endif %}
-  <p class="feed-credit">Sourced live from the <a href="https://github.com/SimplifyJobs/Summer2026-Internships" target="_blank" rel="noopener">SimplifyJobs Summer 2026 Internships</a> open dataset.</p>
+  <p class="feed-credit">Sourced live from <a href="https://remotive.com" target="_blank" rel="noopener">Remotive</a> and the <a href="https://github.com/SuryaHarikrishnan/2027-internship-tracker" target="_blank" rel="noopener">2027 Internship Tracker</a> open dataset (crediting SimplifyJobs and vanshb03).</p>
 {% endblock %}
 
 {% block scripts %}
