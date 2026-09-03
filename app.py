@@ -23,6 +23,7 @@ from flask_wtf import CSRFProtect
 
 from auth import current_user, hash_password, login_required, login_user, logout_user, role_required, verify_password
 from extensions import db
+from live_feeds import fetch_live_hackathons, fetch_live_internships
 from models import (
     BLOOD_GROUPS,
     MOOD_EMOJI,
@@ -489,6 +490,7 @@ def hackathons():
         prize_buckets=PRIZE_BUCKETS.keys(),
         bookmarked_ids=_bookmarked_ids(),
         stats=_opportunity_stats("hackathon", ("Online",)),
+        live_hackathons=fetch_live_hackathons(),
     )
 
 
@@ -505,6 +507,7 @@ def internships():
         prize_buckets=PRIZE_BUCKETS.keys(),
         bookmarked_ids=_bookmarked_ids(),
         stats=_opportunity_stats("internship", ("Remote",)),
+        live_internships=fetch_live_internships(),
     )
 
 

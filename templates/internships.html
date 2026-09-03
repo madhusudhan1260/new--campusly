@@ -33,6 +33,30 @@
       <p class="empty">No internships match these filters.</p>
     {% endif %}
   </section>
+
+  <h2 class="section-title">
+    <span class="live-dot"></span> Live internships
+  </h2>
+  {% if live_internships %}
+    <section class="board op-board">
+      {% for i in live_internships %}
+        <a class="op-card live-card" href="{{ i.url }}" target="_blank" rel="noopener">
+          <div class="op-head">
+            <span class="op-status-badge live-badge">Live</span>
+            <span class="op-head-right">{% if i.posted %}<span class="op-deadline">Posted {{ i.posted }}</span>{% endif %}</span>
+          </div>
+          <h3>{{ i.title }}</h3>
+          <p class="loc">{{ i.company }} · {{ i.locations }}</p>
+          <p class="desc">
+            {{ i.terms }}{% if i.sponsorship %} · {{ i.sponsorship }}{% endif %}
+          </p>
+        </a>
+      {% endfor %}
+    </section>
+  {% else %}
+    <p class="empty">Couldn't load live internships right now -- try refreshing in a bit.</p>
+  {% endif %}
+  <p class="feed-credit">Sourced live from the <a href="https://github.com/SimplifyJobs/Summer2026-Internships" target="_blank" rel="noopener">SimplifyJobs Summer 2026 Internships</a> open dataset.</p>
 {% endblock %}
 
 {% block scripts %}

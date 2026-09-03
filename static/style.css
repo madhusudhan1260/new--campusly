@@ -1646,3 +1646,40 @@ tbody tr:last-child td { border-bottom: none; }
   .main-nav { order: 3; width: 100%; gap: 1rem; }
   .top-inner { flex-direction: column; align-items: flex-start; }
 }
+
+/* ---- Live external feeds (Hackathons/Internships) ------------------------- */
+
+.section-title {
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  margin: var(--sp-6) 0 var(--sp-3);
+}
+
+.live-badge {
+  color: var(--good);
+  border-color: rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.op-card.live-card {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.op-card.live-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.feed-credit {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  margin: 0.4rem 0 var(--sp-6);
+}
+
+.feed-credit a { color: var(--text-dim); }
