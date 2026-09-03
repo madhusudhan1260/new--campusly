@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Lost & Found — Campusly{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1 class="page-title">Lost &amp; Found</h1>
+    <span class="stat-pill">{{ total_available }} item{{ '' if total_available == 1 else 's' }} up for grabs</span>
+  </div>
+
+  <section class="report-card">
+    <h2>Found something? Log it here.</h2>
+    <form id="report-form" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field">
+          <label for="f-name">What is it?</label>
+          <input id="f-name" name="name" type="text" placeholder="e.g. Grey hoodie" required maxlength="120">
+        </div>
+        <div class="field">
+          <label for="f-category">Category</label>
+          <select id="f-category" name="category">
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-location">Where was it found?</label>
+          <input id="f-location" name="location" type="text" placeholder="e.g. Canteen" required maxlength="150">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="field grow">
+          <label for="f-photo">Photo (optional)</label>
+          <div class="photo-row">
+            <input id="f-photo" name="image" type="file" accept="image/*">
+            {% if ai_ready %}
+              <button type="button" id="ai-btn" class="btn ghost" disabled>Analyze with AI</button>
+            {% else %}
+              <span class="hint">Add GEMINI_API_KEY to .env to enable AI auto-fill.</span>
+            {% endif %}
+          </div>
+          <span id="ai-status" class="hint"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-desc">Description</label>
+        <textarea id="f-desc" name="description" rows="2" placeholder="Color, brand, anything distinguishing"></textarea>
+      </div>
+
+      <button class="btn primary" type="submit">Post to the board</button>
+      <span id="report-msg" class="msg"></span>
+    </form>
+  </section>
+
+  <section class="toolbar">
+    <form id="filter-form" class="filters" method="get" action="{{ url_for('lost_found') }}">
+      <div class="search-box">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" placeholder="Search name or place…" value="{{ filters.q }}">
+      </div>
+      <select name="category">
+        <option value="">Any category</option>
+        {% for c in categories %}
+          <option value="{{ c }}" {{ 'selected' if filters.category == c else '' }}>{{ c }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn ghost" type="submit">Search</button>
+    </form>
+  </section>
+
+  <section class="board">
+    {% if items %}
+      {% for item in items %}
+        <article class="card fade-up {{ 'claimed' if item.status != 'Available' else '' }}" style="--fade-delay: {{ (loop.index0 * 0.04)|round(3) }}s">
+          <div class="thumb">
+            {% if item.image_filename %}
+              <img src="{{ url_for('static', filename='uploads/' + item.image_filename) }}" alt="{{ item.name }}">
+            {% else %}
+              <span class="thumb-placeholder">{{ item.category[:1] }}</span>
+            {% endif %}
+            <span class="tag {{ item.status }}">{{ item.status }}</span>
+          </div>
+          <div class="body">
+            <h3>{{ item.name }}</h3>
+            <p class="loc"><svg class="icon" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> {{ item.location }}</p>
+            <p class="cat">{{ item.category }}</p>
+            {% if item.description %}<p class="desc">{{ item.description }}</p>{% endif %}
+            {% if item.status == 'Available' %}
+              <button class="btn claim" type="button" data-id="{{ item.id }}">This is mine</button>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    {% else %}
+      <p class="empty">Nothing here yet. Be the first to post a found item.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='lost_found.js') }}"></script>
+{% endblock %}

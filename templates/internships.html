@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_opportunity_macros.html" import opportunity_card, opportunity_form, filter_bar with context %}
+{% block title %}Internships — Campusly{% endblock %}
+{% block content %}
+  <h1 class="page-title icon-title">
+    <svg class="icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+    Internships
+  </h1>
+  <p class="page-sub">Curated openings, posted by your campus admins.</p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="value">{{ stats.open }}</div><div class="label">Open Now</div></div>
+    <div class="stat hot"><div class="value">{{ stats.closing_soon }}</div><div class="label">Closing Soon</div></div>
+    <div class="stat cool"><div class="value">{{ stats.online }}</div><div class="label">Remote</div></div>
+    <div class="stat good"><div class="value">{{ stats.reward_flag }}</div><div class="label">{{ stats.reward_label }}</div></div>
+    <div class="stat accent"><div class="value">{{ stats.bookmarked }}</div><div class="label">Saved</div></div>
+  </div>
+
+  {% if logged_in_user.is_admin() %}
+    {{ opportunity_form('internship', modes) }}
+  {% endif %}
+
+  <div class="toolbar">
+    {{ filter_bar(url_for('internships'), filters, modes, prize_buckets) }}
+  </div>
+
+  <section class="board op-board">
+    {% if opportunities %}
+      {% for op in opportunities %}
+        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0) }}
+      {% endfor %}
+    {% else %}
+      <p class="empty">No internships match these filters.</p>
+    {% endif %}
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='opportunities.js') }}"></script>
+{% endblock %}

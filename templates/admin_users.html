@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Manage Users — Campusly{% endblock %}
+{% block content %}
+  <h1 class="page-title">Manage users</h1>
+  <p class="page-sub">Promote a student to admin so they can post hackathons and internships.</p>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td>{{ u.name }}</td>
+            <td>{{ u.email }}</td>
+            <td><span class="role-badge role-{{ u.role }}">{{ u.role.replace('_', ' ') }}</span></td>
+            <td>{{ u.created_at.strftime('%d %b %Y') }}</td>
+            <td>
+              {% if u.role == 'super_admin' %}
+                <span class="hint">—</span>
+              {% elif u.role == 'admin' %}
+                <form method="post" action="{{ url_for('change_user_role', user_id=u.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="role" value="student">
+                  <button class="btn ghost small" type="submit">Demote to student</button>
+                </form>
+              {% else %}
+                <form method="post" action="{{ url_for('change_user_role', user_id=u.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="role" value="admin">
+                  <button class="btn primary small" type="submit">Make admin</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

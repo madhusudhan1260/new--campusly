@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Campusly{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='logo.svg') }}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true">
+    <span class="orb orb-1"></span>
+    <span class="orb orb-2"></span>
+    <span class="orb orb-3"></span>
+  </div>
+
+  {% if logged_in_user %}
+    <header class="top">
+      <div class="wrap top-inner">
+        <a class="brand" href="{{ url_for('dashboard') }}">
+          <img src="{{ url_for('static', filename='logo.svg') }}" alt="">
+          Campusly
+        </a>
+        <nav class="main-nav">
+          <a href="{{ url_for('hackathons') }}" class="{{ 'active' if request.endpoint == 'hackathons' else '' }}">Hackathons</a>
+          <a href="{{ url_for('internships') }}" class="{{ 'active' if request.endpoint == 'internships' else '' }}">Internships</a>
+          <a href="{{ url_for('health') }}" class="{{ 'active' if request.endpoint == 'health' else '' }}">Health</a>
+          <a href="{{ url_for('lost_found') }}" class="{{ 'active' if request.endpoint == 'lost_found' else '' }}">Lost &amp; Found</a>
+          {% if logged_in_user.is_super_admin() %}
+            <a href="{{ url_for('manage_users') }}" class="{{ 'active' if request.endpoint == 'manage_users' else '' }}">Users</a>
+          {% endif %}
+        </nav>
+        <div class="user-box">
+          <span class="role-badge role-{{ logged_in_user.role }}">{{ logged_in_user.role.replace('_', ' ') }}</span>
+          <span class="user-name">{{ logged_in_user.name }}</span>
+          <form action="{{ url_for('logout') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn ghost small" type="submit">Log out</button>
+          </form>
+        </div>
+      </div>
+    </header>
+  {% endif %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="wrap flash-wrap">
+        {% for category, message in messages %}
+          <div class="flash {{ 'err' if category == 'error' else 'ok' }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main class="wrap page">
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='csrf.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

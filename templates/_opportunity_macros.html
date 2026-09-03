@@ -1,0 +1,212 @@
+{% macro opportunity_card(op, can_manage, is_bookmarked, today, index=0) %}
+  <article class="op-card fade-up {{ 'op-closed' if op.status == 'closed' else '' }}" data-op-id="{{ op.id }}" style="--fade-delay: {{ (index * 0.04)|round(3) }}s">
+    <div class="op-head">
+      <span class="op-mode mode-{{ op.mode|lower }}">{{ op.mode }}</span>
+      <div class="op-head-right">
+        {% if op.status == 'closed' %}<span class="op-status-badge">Closed</span>{% endif %}
+        <button class="bookmark-btn {{ 'saved' if is_bookmarked else '' }}" type="button" data-id="{{ op.id }}" aria-label="{{ 'Remove bookmark' if is_bookmarked else 'Save for later' }}">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <h3>{{ op.title }}</h3>
+    {% if op.organizer %}<p class="op-org">{{ op.organizer }}</p>{% endif %}
+    {% if op.description %}<p class="op-desc">{{ op.description }}</p>{% endif %}
+
+    {% if op.deadline %}
+      {% set days_left = (op.deadline - today).days %}
+      <p class="op-deadline {{ 'urgent' if 0 <= days_left <= 3 else 'soon' if 4 <= days_left <= 7 else '' }} {{ 'past' if days_left < 0 else '' }}">
+        {% if days_left < 0 %}Deadline passed{% elif days_left == 0 %}Closes today{% elif days_left == 1 %}Closes tomorrow{% else %}Closes in {{ days_left }} days{% endif %}
+        &middot; {{ op.deadline.strftime('%d %b %Y') }}
+      </p>
+    {% endif %}
+
+    <div class="op-meta">
+      {% if op.location %}
+        <span><svg class="icon" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> {{ op.location }}</span>
+      {% endif %}
+      {% if op.reward_text %}
+        <span><svg class="icon" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg> {{ op.reward_text }}</span>
+      {% endif %}
+      {% if op.kind == 'hackathon' and (op.team_min or op.team_max) %}
+        <span>Team of {{ op.team_min or 1 }}&ndash;{{ op.team_max or op.team_min or 1 }}</span>
+      {% endif %}
+      {% if op.kind == 'internship' and op.duration_text %}
+        <span>{{ op.duration_text }}</span>
+      {% endif %}
+    </div>
+
+    {% if op.kind == 'internship' and op.eligibility %}
+      <p class="op-eligibility">Eligibility: {{ op.eligibility }}</p>
+    {% endif %}
+
+    {% set flags = [] %}
+    {% if op.kind == 'hackathon' and op.is_free %}{% set _ = flags.append('Free entry') %}{% endif %}
+    {% if op.kind == 'hackathon' and op.is_student_only %}{% set _ = flags.append('Students only') %}{% endif %}
+    {% if op.kind == 'internship' and op.is_paid %}{% set _ = flags.append('Paid') %}{% endif %}
+    {% if flags or op.category_labels() %}
+      <div class="op-tags">
+        {% for f in flags %}<span class="op-tag op-flag">{{ f }}</span>{% endfor %}
+        {% for label in op.category_labels() %}<span class="op-tag">{{ label }}</span>{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="op-actions">
+      <a class="btn primary small" href="{{ op.apply_url }}" target="_blank" rel="noopener noreferrer">Apply &#8599;</a>
+      {% if can_manage %}
+        <button class="btn ghost small op-toggle-status" type="button" data-id="{{ op.id }}">{{ 'Reopen' if op.status == 'closed' else 'Close' }}</button>
+        <button class="btn ghost small op-delete" type="button" data-id="{{ op.id }}">Remove</button>
+      {% endif %}
+    </div>
+  </article>
+{% endmacro %}
+
+{% macro category_checkboxes(field_id_prefix) %}
+  <div class="category-grid">
+    {% for key, label in categories.items() %}
+      <label class="category-check">
+        <input type="checkbox" name="category" value="{{ key }}">
+        {{ label }}
+      </label>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% macro opportunity_form(kind, modes) %}
+  <section class="report-card">
+    <h2>Post {{ 'an' if kind == 'internship' else 'a' }} {{ kind }}</h2>
+    <form method="post" action="{{ url_for('create_opportunity') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <div class="row">
+        <div class="field grow">
+          <label>Title</label>
+          <input name="title" type="text" required maxlength="200" placeholder="{{ 'e.g. Smart India Hackathon 2026' if kind == 'hackathon' else 'e.g. Frontend Intern' }}">
+        </div>
+        <div class="field">
+          <label>Organizer{{ '' if kind == 'hackathon' else ' / Company' }}</label>
+          <input name="organizer" type="text" maxlength="150">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Mode</label>
+          <select name="mode">
+            {% for m in modes %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Location</label>
+          <input name="location" type="text" maxlength="150" placeholder="e.g. Bengaluru, or Remote">
+        </div>
+        <div class="field">
+          <label>Deadline</label>
+          <input name="deadline" type="date">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>{{ 'Prize' if kind == 'hackathon' else 'Stipend' }} (text)</label>
+          <input name="reward_text" type="text" maxlength="150" placeholder="{{ '₹1,00,000' if kind == 'hackathon' else '₹15,000/month' }}">
+        </div>
+        <div class="field">
+          <label>{{ 'Prize' if kind == 'hackathon' else 'Stipend' }} in &#8377; (for filtering)</label>
+          <input name="reward_inr" type="number" min="0" step="1000" placeholder="100000">
+        </div>
+        {% if kind == 'hackathon' %}
+          <div class="field">
+            <label>Team size</label>
+            <div class="team-size-row">
+              <input name="team_min" type="number" min="1" max="20" placeholder="Min">
+              <input name="team_max" type="number" min="1" max="20" placeholder="Max">
+            </div>
+          </div>
+        {% else %}
+          <div class="field">
+            <label>Duration</label>
+            <input name="duration_text" type="text" maxlength="120" placeholder="e.g. 3 months, Summer 2026">
+          </div>
+        {% endif %}
+      </div>
+
+      {% if kind == 'hackathon' %}
+        <div class="row checkbox-row">
+          <label class="checkbox-field"><input type="checkbox" name="is_free"> Free to enter</label>
+          <label class="checkbox-field"><input type="checkbox" name="is_student_only"> Students only</label>
+        </div>
+      {% else %}
+        <div class="row checkbox-row">
+          <label class="checkbox-field"><input type="checkbox" name="is_paid" checked> Paid</label>
+        </div>
+        <div class="field">
+          <label>Eligibility</label>
+          <input name="eligibility" type="text" maxlength="240" placeholder="e.g. Pre-final / final year students">
+        </div>
+      {% endif %}
+
+      <div class="field">
+        <label>Categories</label>
+        {{ category_checkboxes(kind) }}
+      </div>
+
+      <div class="field">
+        <label>Description</label>
+        <textarea name="description" rows="2" maxlength="1000"></textarea>
+      </div>
+      <div class="field">
+        <label>Apply link</label>
+        <input name="apply_url" type="url" required placeholder="https://…">
+      </div>
+      <button class="btn primary" type="submit">Post {{ kind }}</button>
+    </form>
+  </section>
+{% endmacro %}
+
+{% macro filter_bar(endpoint, filters, modes, prize_buckets) %}
+  <form class="filters-advanced" method="get" action="{{ endpoint }}">
+    <div class="filters-row">
+      <div class="search-box">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" name="q" placeholder="Search by title, organizer or category…" value="{{ filters.q }}">
+      </div>
+      <select name="mode">
+        <option value="">Any mode</option>
+        {% for m in modes %}<option value="{{ m }}" {{ 'selected' if filters.mode == m else '' }}>{{ m }}</option>{% endfor %}
+      </select>
+      <select name="prize">
+        <option value="">Any amount</option>
+        {% for b in prize_buckets %}<option value="{{ b }}" {{ 'selected' if filters.prize == b else '' }}>{{ b }}</option>{% endfor %}
+      </select>
+      <select name="status">
+        <option value="open" {{ 'selected' if filters.status == 'open' else '' }}>Open</option>
+        <option value="closed" {{ 'selected' if filters.status == 'closed' else '' }}>Closed</option>
+        <option value="all" {{ 'selected' if filters.status == 'all' else '' }}>All</option>
+      </select>
+      <select name="sort">
+        <option value="deadline" {{ 'selected' if filters.sort == 'deadline' else '' }}>Soonest deadline</option>
+        <option value="reward" {{ 'selected' if filters.sort == 'reward' else '' }}>Highest reward</option>
+        <option value="recent" {{ 'selected' if filters.sort == 'recent' else '' }}>Newest posted</option>
+        <option value="title" {{ 'selected' if filters.sort == 'title' else '' }}>Title A-Z</option>
+      </select>
+      <button class="btn ghost" type="submit">Filter</button>
+    </div>
+    <div class="filters-row checkbox-row">
+      <label class="checkbox-field"><input type="checkbox" name="free_only" value="1" {{ 'checked' if filters.free_only else '' }}> Free only</label>
+      <label class="checkbox-field"><input type="checkbox" name="paid_only" value="1" {{ 'checked' if filters.paid_only else '' }}> Paid only</label>
+      <label class="checkbox-field"><input type="checkbox" name="student_only" value="1" {{ 'checked' if filters.student_only else '' }}> Students only</label>
+      <label class="checkbox-field"><input type="checkbox" name="bookmarked_only" value="1" {{ 'checked' if filters.bookmarked_only else '' }}> Saved only</label>
+    </div>
+    <details class="category-filter-details">
+      <summary>Filter by category {{ '(' + filters.categories|length|string + ' selected)' if filters.categories else '' }}</summary>
+      <div class="category-grid">
+        {% for key, label in categories.items() %}
+          <label class="category-check">
+            <input type="checkbox" name="category" value="{{ key }}" {{ 'checked' if key in filters.categories else '' }}>
+            {{ label }}
+          </label>
+        {% endfor %}
+      </div>
+    </details>
+  </form>
+{% endmacro %}

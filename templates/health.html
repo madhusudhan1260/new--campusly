@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Health — Campusly{% endblock %}
+{% block content %}
+  <h1 class="page-title icon-title">
+    <svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+    Health
+  </h1>
+  <p class="page-sub">Ask a health question, or check whether a clinic is real before you trust it.</p>
+
+  {% if not ai_ready %}
+    <div class="flash err">AI is not configured. Set GEMINI_API_KEY in .env and restart the server to enable this page.</div>
+  {% endif %}
+
+  <section class="report-card">
+    <h2>Ask about a symptom or condition</h2>
+    <p class="hint section-hint">General information only -- not a diagnosis. For emergencies, contact emergency services immediately.</p>
+
+    <div id="qa-log" class="qa-log"></div>
+
+    <form id="ask-form">
+      <div class="row">
+        <div class="field grow">
+          <label for="q-question">Your question</label>
+          <textarea id="q-question" name="question" rows="2" maxlength="1000" placeholder="e.g. What can cause a persistent dry cough?" {{ 'disabled' if not ai_ready }}></textarea>
+        </div>
+      </div>
+      <button class="btn primary" type="submit" {{ 'disabled' if not ai_ready }}>Ask</button>
+      <span id="ask-msg" class="msg"></span>
+    </form>
+  </section>
+
+  <section class="report-card">
+    <h2>Get a second opinion on a clinic</h2>
+    <p class="hint section-hint">
+      This gives you the AI's general opinion on the name -- it has <strong>no live internet access</strong>,
+      so it cannot actually look up a phone number or confirm anything is real right now. Use the checklist
+      below to verify it yourself; treat the AI note as a hint, not a verdict.
+    </p>
+
+    <form id="clinic-form" enctype="multipart/form-data">
+      <div class="row">
+        <div class="field">
+          <label for="c-name">Clinic name</label>
+          <input id="c-name" name="name" type="text" maxlength="200" placeholder="e.g. Apollo Clinic" {{ 'disabled' if not ai_ready }}>
+        </div>
+        <div class="field">
+          <label for="c-location">City / area (optional)</label>
+          <input id="c-location" name="location" type="text" maxlength="150" placeholder="e.g. Koramangala, Bengaluru" {{ 'disabled' if not ai_ready }}>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field grow">
+          <label for="c-image">Photo of signboard or letterhead (optional)</label>
+          <div class="photo-row">
+            <input id="c-image" name="image" type="file" accept="image/*" {{ 'disabled' if not ai_ready }}>
+            <span class="hint">Helps if you don't know the exact name.</span>
+          </div>
+        </div>
+      </div>
+      <button class="btn primary" type="submit" {{ 'disabled' if not ai_ready }}>Get AI opinion</button>
+      <span id="clinic-msg" class="msg"></span>
+    </form>
+
+    <div id="clinic-result"></div>
+
+    <div class="checklist">
+      <h3>How to actually verify it</h3>
+      <ul>
+        <li>Look it up on Google Maps -- a real clinic has reviews, photos and a listed address that matches.</li>
+        <li>Call the number yourself using one you found independently, not one texted or emailed to you.</li>
+        <li>Check it's registered -- in India, ask for its Clinical Establishment / NABH registration number.</li>
+        <li>Never pay a "booking fee" or share OTPs to confirm an appointment -- real clinics don't ask for that.</li>
+        <li>When in doubt, use your campus health center instead.</li>
+      </ul>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='health.js') }}"></script>
+{% endblock %}
