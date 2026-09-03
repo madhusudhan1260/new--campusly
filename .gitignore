@@ -6,3 +6,4 @@ venv/
 static/uploads/*
 !static/uploads/.gitkeep
 .DS_Store
+*.log

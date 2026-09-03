@@ -14,7 +14,7 @@ import os
 import secrets
 import time
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 import requests
 from dotenv import load_dotenv
@@ -23,7 +23,26 @@ from flask_wtf import CSRFProtect
 
 from auth import current_user, hash_password, login_required, login_user, logout_user, role_required, verify_password
 from extensions import db
-from models import CATEGORIES, Bookmark, Item, Opportunity, User
+from models import (
+    BLOOD_GROUPS,
+    MOOD_EMOJI,
+    MOODS,
+    SOS_TYPES,
+    BloodDonor,
+    BloodPing,
+    BloodRequest,
+    Bookmark,
+    CATEGORIES,
+    CounselorRequest,
+    Doctor,
+    HealthAppointment,
+    Item,
+    MoodEntry,
+    Opportunity,
+    SOSRequest,
+    SupportMessage,
+    User,
+)
 
 load_dotenv()
 
@@ -42,6 +61,19 @@ SORT_OPTIONS = ("deadline", "reward", "recent", "title")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "").strip()
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest").strip()
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
+
+# Real institution facts -- placeholders on purpose. Set these in .env rather
+# than trusting a made-up number for something students might call in a
+# genuine emergency.
+HEALTH_CENTER_NAME = os.environ.get("HEALTH_CENTER_NAME", "Campus Health Center")
+HEALTH_CENTER_PHONE = os.environ.get("HEALTH_CENTER_PHONE", "Set HEALTH_CENTER_PHONE in .env")
+HEALTH_CENTER_TIMINGS = os.environ.get("HEALTH_CENTER_TIMINGS", "Set HEALTH_CENTER_TIMINGS in .env")
+HEALTH_CENTER_LOCATION = os.environ.get("HEALTH_CENTER_LOCATION", "Set HEALTH_CENTER_LOCATION in .env")
+
+APPOINTMENT_SLOTS = [
+    "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+    "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM",
+]
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
@@ -173,6 +205,9 @@ def _gemini_text(payload: dict, timeout: int = 30) -> tuple[str | None, str | No
                 return data["candidates"][0]["content"]["parts"][0]["text"], None
             except (KeyError, IndexError):
                 return None, "Gemini's response did not contain any text."
+
+        if response.status_code == 429:
+            return None, "The AI assistant has hit its free-tier daily limit. Please try again later."
 
         try:
             detail = response.json().get("error", {}).get("message", response.text)
@@ -418,8 +453,6 @@ def _bookmarked_ids() -> set[int]:
 def _opportunity_stats(kind: str, online_modes: tuple[str, ...]) -> dict:
     """Headline numbers shown above the board -- always over the whole kind,
     not the currently-applied filters, so the row reads as a stable overview."""
-    from datetime import timedelta
-
     base = Opportunity.query.filter_by(kind=kind)
     open_base = base.filter(Opportunity.status == "open")
     week_out = date.today() + timedelta(days=7)
@@ -678,7 +711,318 @@ def verify_clinic(name: str, location: str) -> dict:
 @app.route("/health")
 @login_required
 def health():
-    return render_template("health.html", ai_ready=bool(GEMINI_API_KEY))
+    user = current_user()
+    today = date.today()
+
+    doctors = Doctor.query.order_by(Doctor.available.desc(), Doctor.name.asc()).all()
+    todays_queue = HealthAppointment.query.filter_by(appointment_date=today, status="confirmed").count()
+
+    active_sos = (
+        SOSRequest.query.filter_by(status="active").order_by(SOSRequest.created_at.desc()).all()
+        if user.is_admin()
+        else []
+    )
+    my_sos_active = SOSRequest.query.filter_by(user_id=user.id, status="active").first() is not None
+
+    my_mood_today = MoodEntry.query.filter_by(user_id=user.id, entry_date=today).first()
+    since = datetime.utcnow() - timedelta(days=7)
+    recent_moods = MoodEntry.query.filter(MoodEntry.created_at >= since).all()
+    mood_weight = {"great": 100, "good": 75, "okay": 50, "low": 25, "stressed": 10}
+    wellness_score = (
+        round(sum(mood_weight[m.mood] for m in recent_moods) / len(recent_moods))
+        if recent_moods
+        else None
+    )
+
+    my_donor_profile = BloodDonor.query.filter_by(user_id=user.id).first()
+    open_blood_requests = (
+        BloodRequest.query.filter(
+            db.or_(BloodRequest.status == "open", BloodRequest.requested_by_id == user.id)
+        )
+        .order_by(BloodRequest.created_at.desc())
+        .limit(10)
+        .all()
+    )
+    my_pending_pings = (
+        BloodPing.query.join(BloodDonor)
+        .filter(BloodDonor.user_id == user.id, BloodPing.status == "pending")
+        .all()
+        if my_donor_profile
+        else []
+    )
+
+    my_upcoming_appointments = (
+        HealthAppointment.query.filter(
+            HealthAppointment.user_id == user.id,
+            HealthAppointment.status == "confirmed",
+            HealthAppointment.appointment_date >= today,
+        )
+        .order_by(HealthAppointment.appointment_date.asc())
+        .all()
+    )
+
+    stats_served = (
+        MoodEntry.query.count()
+        + HealthAppointment.query.count()
+        + SOSRequest.query.filter_by(status="resolved").count()
+    )
+
+    return render_template(
+        "health.html",
+        ai_ready=bool(GEMINI_API_KEY),
+        doctors=doctors,
+        todays_queue=todays_queue,
+        active_sos=active_sos,
+        my_sos_active=my_sos_active,
+        sos_types=SOS_TYPES,
+        moods=MOODS,
+        mood_emoji=MOOD_EMOJI,
+        my_mood_today=my_mood_today,
+        wellness_score=wellness_score,
+        recent_mood_count=len(recent_moods),
+        my_donor_profile=my_donor_profile,
+        blood_groups=BLOOD_GROUPS,
+        open_blood_requests=open_blood_requests,
+        my_pending_pings=my_pending_pings,
+        appointment_slots=APPOINTMENT_SLOTS,
+        my_upcoming_appointments=my_upcoming_appointments,
+        stats_served=stats_served,
+        health_center={
+            "name": HEALTH_CENTER_NAME,
+            "phone": HEALTH_CENTER_PHONE,
+            "timings": HEALTH_CENTER_TIMINGS,
+            "location": HEALTH_CENTER_LOCATION,
+        },
+        today=today,
+    )
+
+
+# --- Doctors (admin-managed) -----------------------------------------------
+
+@app.post("/health/doctors")
+@role_required("admin", "super_admin")
+def add_doctor():
+    name = (request.form.get("name") or "").strip()[:120]
+    specialty = (request.form.get("specialty") or "").strip()[:120]
+    if not name:
+        flash("Enter a doctor's name.", "error")
+        return redirect(url_for("health"))
+    db.session.add(Doctor(name=name, specialty=specialty or None, available=True))
+    db.session.commit()
+    flash(f"Dr. {name} added.", "success")
+    return redirect(url_for("health"))
+
+
+@app.post("/health/doctors/<int:doctor_id>/toggle")
+@role_required("admin", "super_admin")
+def toggle_doctor(doctor_id: int):
+    doctor = db.session.get(Doctor, doctor_id)
+    if doctor is None:
+        return jsonify({"ok": False, "error": "Not found."}), 404
+    doctor.available = not doctor.available
+    db.session.commit()
+    return jsonify({"ok": True, "available": doctor.available})
+
+
+# --- Emergency SOS -----------------------------------------------------------
+
+@app.post("/health/sos")
+@login_required
+def create_sos():
+    emergency_type = request.form.get("emergency_type")
+    location = (request.form.get("location") or "").strip()[:200]
+    if emergency_type not in SOS_TYPES:
+        return jsonify({"ok": False, "error": "Choose an emergency type."}), 400
+    if not location:
+        return jsonify({"ok": False, "error": "Enter your location."}), 400
+
+    sos = SOSRequest(user_id=current_user().id, emergency_type=emergency_type, location=location)
+    db.session.add(sos)
+    db.session.commit()
+    return jsonify({"ok": True, "id": sos.id})
+
+
+@app.post("/health/sos/<int:sos_id>/resolve")
+@role_required("admin", "super_admin")
+def resolve_sos(sos_id: int):
+    sos = db.session.get(SOSRequest, sos_id)
+    if sos is None:
+        return jsonify({"ok": False, "error": "Not found."}), 404
+    sos.status = "resolved"
+    sos.resolved_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# --- Mental wellness ---------------------------------------------------------
+
+@app.post("/health/mood")
+@login_required
+def submit_mood():
+    mood = request.form.get("mood")
+    if mood not in MOODS:
+        return jsonify({"ok": False, "error": "Pick one of the moods."}), 400
+
+    today = date.today()
+    entry = MoodEntry.query.filter_by(user_id=current_user().id, entry_date=today).first()
+    if entry:
+        entry.mood = mood
+    else:
+        db.session.add(MoodEntry(user_id=current_user().id, mood=mood, entry_date=today))
+    db.session.commit()
+    return jsonify({"ok": True, "mood": mood})
+
+
+@app.post("/health/counselor-request")
+@login_required
+def request_counselor():
+    note = (request.form.get("note") or "").strip()[:1000]
+    db.session.add(CounselorRequest(user_id=current_user().id, note=note or None))
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/health/support")
+@login_required
+def submit_support_message():
+    """Deliberately doesn't record who sent this -- see SupportMessage."""
+    message = (request.form.get("message") or "").strip()[:1000]
+    if not message:
+        return jsonify({"ok": False, "error": "Write something first."}), 400
+    db.session.add(SupportMessage(message=message))
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# --- Blood donor network ------------------------------------------------------
+
+@app.post("/health/blood/register")
+@login_required
+def register_donor():
+    blood_group = request.form.get("blood_group")
+    if blood_group not in BLOOD_GROUPS:
+        return jsonify({"ok": False, "error": "Choose a valid blood group."}), 400
+
+    location = (request.form.get("location") or "").strip()[:150]
+    phone = (request.form.get("phone") or "").strip()[:32]
+    available = request.form.get("available") == "on"
+
+    profile = BloodDonor.query.filter_by(user_id=current_user().id).first()
+    if profile is None:
+        profile = BloodDonor(user_id=current_user().id)
+        db.session.add(profile)
+    profile.blood_group = blood_group
+    profile.location = location or None
+    profile.phone = phone or None
+    profile.available = available
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.post("/health/blood/request")
+@login_required
+def create_blood_request():
+    blood_group = request.form.get("blood_group")
+    if blood_group not in BLOOD_GROUPS:
+        return jsonify({"ok": False, "error": "Choose a valid blood group."}), 400
+    note = (request.form.get("note") or "").strip()[:300]
+
+    req = BloodRequest(requested_by_id=current_user().id, blood_group=blood_group, note=note or None)
+    db.session.add(req)
+    db.session.flush()
+
+    matches = BloodDonor.query.filter_by(blood_group=blood_group, available=True).filter(
+        BloodDonor.user_id != current_user().id
+    ).all()
+    for donor in matches:
+        db.session.add(BloodPing(request_id=req.id, donor_id=donor.id))
+    db.session.commit()
+    return jsonify({"ok": True, "id": req.id, "notified": len(matches)})
+
+
+@app.post("/health/blood/ping/<int:ping_id>/respond")
+@login_required
+def respond_to_blood_ping(ping_id: int):
+    ping = db.session.get(BloodPing, ping_id)
+    if ping is None:
+        return jsonify({"ok": False, "error": "Not found."}), 404
+    if ping.donor.user_id != current_user().id:
+        abort(403)
+
+    decision = request.form.get("decision")
+    if decision not in ("accepted", "declined"):
+        return jsonify({"ok": False, "error": "Invalid decision."}), 400
+
+    ping.status = decision
+    if decision == "accepted":
+        ping.request.status = "fulfilled"
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/health/blood/request/<int:request_id>/responses")
+@login_required
+def blood_request_responses(request_id: int):
+    """Contact details are only ever returned here, to the student who made
+    the request, and only for donors who already accepted."""
+    req = db.session.get(BloodRequest, request_id)
+    if req is None or req.requested_by_id != current_user().id:
+        abort(403)
+
+    accepted = BloodPing.query.filter_by(request_id=request_id, status="accepted").all()
+    return jsonify(
+        {
+            "ok": True,
+            "donors": [
+                {"name": p.donor.user.name, "phone": p.donor.phone, "location": p.donor.location}
+                for p in accepted
+            ],
+        }
+    )
+
+
+# --- Doctor appointments -------------------------------------------------------
+
+@app.post("/health/appointments")
+@login_required
+def book_appointment():
+    doctor_id = request.form.get("doctor_id", type=int)
+    date_raw = (request.form.get("date") or "").strip()
+    time_slot = request.form.get("time_slot")
+
+    doctor = db.session.get(Doctor, doctor_id) if doctor_id else None
+    if doctor is None:
+        return jsonify({"ok": False, "error": "Choose a doctor."}), 400
+    if time_slot not in APPOINTMENT_SLOTS:
+        return jsonify({"ok": False, "error": "Choose a time slot."}), 400
+    try:
+        appointment_date = datetime.strptime(date_raw, "%Y-%m-%d").date()
+    except ValueError:
+        return jsonify({"ok": False, "error": "Choose a valid date."}), 400
+    if appointment_date < date.today():
+        return jsonify({"ok": False, "error": "Choose a date that hasn't passed."}), 400
+
+    clash = HealthAppointment.query.filter_by(
+        doctor_id=doctor.id, appointment_date=appointment_date, time_slot=time_slot, status="confirmed"
+    ).first()
+    if clash:
+        return jsonify({"ok": False, "error": "That slot is already booked. Pick another time."}), 409
+
+    appt = HealthAppointment(
+        user_id=current_user().id, doctor_id=doctor.id, appointment_date=appointment_date, time_slot=time_slot
+    )
+    db.session.add(appt)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "ok": True,
+            "doctor_name": doctor.name,
+            "date": appointment_date.strftime("%d %b %Y"),
+            "time_slot": time_slot,
+            "location": HEALTH_CENTER_NAME,
+        }
+    )
 
 
 @app.post("/health/ask")

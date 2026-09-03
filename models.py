@@ -127,3 +127,128 @@ class Bookmark(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     __table_args__ = (db.UniqueConstraint("user_id", "opportunity_id", name="uq_bookmark_user_opportunity"),)
+
+
+# ---------------------------------------------------------------------------
+# CampusCare -- Health Center, SOS, Wellness, Blood Network, Appointments.
+# ---------------------------------------------------------------------------
+
+BLOOD_GROUPS = ("O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-")
+SOS_TYPES = ("Medical emergency", "Injury", "Accident", "Other")
+MOODS = ("great", "good", "okay", "low", "stressed")
+MOOD_EMOJI = {"great": "😊", "good": "🙂", "okay": "😐", "low": "😔", "stressed": "😣"}
+
+
+class Doctor(db.Model):
+    """A campus health center doctor. Admin-managed, not self-service."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    specialty = db.Column(db.String(120), nullable=True)
+    available = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class HealthAppointment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    doctor_id = db.Column(db.Integer, db.ForeignKey("doctor.id"), nullable=False)
+    appointment_date = db.Column(db.Date, nullable=False, index=True)
+    time_slot = db.Column(db.String(20), nullable=False)  # e.g. "10:30 AM"
+    status = db.Column(db.String(20), nullable=False, default="confirmed")  # confirmed|cancelled
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+    doctor = db.relationship("Doctor", foreign_keys=[doctor_id])
+
+
+class SOSRequest(db.Model):
+    """A campus emergency alert. Shown live to admins so someone can act on it."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    emergency_type = db.Column(db.String(30), nullable=False)
+    location = db.Column(db.String(200), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="active", index=True)  # active|resolved
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    resolved_at = db.Column(db.DateTime, nullable=True)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+
+
+class MoodEntry(db.Model):
+    """One check-in per student per day."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    mood = db.Column(db.String(20), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False, index=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("user_id", "entry_date", name="uq_mood_user_day"),)
+
+
+class CounselorRequest(db.Model):
+    """A named request for a counselor session -- unlike Anonymous Support,
+    the counselor needs to know who to schedule with."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    note = db.Column(db.Text, nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending|contacted
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+
+
+class SupportMessage(db.Model):
+    """Anonymous support message. Deliberately has no user_id -- not even an
+    admin can trace it back to a student, which is the point of it."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    message = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
+class BloodDonor(db.Model):
+    """A student's donor profile -- one per account."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, unique=True, index=True)
+    blood_group = db.Column(db.String(5), nullable=False)
+    available = db.Column(db.Boolean, nullable=False, default=True)
+    location = db.Column(db.String(150), nullable=True)
+    # Only ever shown to a requester after this donor accepts a specific
+    # ping -- never listed publicly. Contact happens through the app, not by
+    # broadcasting a phone number to every student who opens the page.
+    phone = db.Column(db.String(32), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+
+
+class BloodRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    requested_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    blood_group = db.Column(db.String(5), nullable=False, index=True)
+    note = db.Column(db.String(300), nullable=True)
+    status = db.Column(db.String(20), nullable=False, default="open")  # open|fulfilled
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    requested_by = db.relationship("User", foreign_keys=[requested_by_id])
+
+
+class BloodPing(db.Model):
+    """The requester asking one specific matching donor to respond --
+    contact details are only ever shared once a donor accepts, not broadcast."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    request_id = db.Column(db.Integer, db.ForeignKey("blood_request.id"), nullable=False, index=True)
+    donor_id = db.Column(db.Integer, db.ForeignKey("blood_donor.id"), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="pending")  # pending|accepted|declined
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    request = db.relationship("BloodRequest", foreign_keys=[request_id])
+    donor = db.relationship("BloodDonor", foreign_keys=[donor_id])
+
+    __table_args__ = (db.UniqueConstraint("request_id", "donor_id", name="uq_ping_request_donor"),)

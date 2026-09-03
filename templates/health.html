@@ -1,14 +1,388 @@
 {% extends "base.html" %}
-{% block title %}Health — Campusly{% endblock %}
+{% block title %}CampusCare — Campusly{% endblock %}
 {% block content %}
   <h1 class="page-title icon-title">
     <svg class="icon" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
-    Health
+    CampusCare
   </h1>
-  <p class="page-sub">Ask a health question, or check whether a clinic is real before you trust it.</p>
+  <p class="page-sub">Your campus health center -- emergencies, wellness, blood network and appointments.</p>
+
+  <!-- ============================================================ Hero / SOS -->
+  <section class="care-hero">
+    <div class="care-particles" aria-hidden="true">
+      <span class="particle" style="left:8%; animation-duration: 14s; animation-delay: -2s; font-size: 22px;">&#10133;</span>
+      <span class="particle" style="left:22%; animation-duration: 18s; animation-delay: -6s; font-size: 16px;">&#10084;</span>
+      <span class="particle" style="left:40%; animation-duration: 15s; animation-delay: -10s; font-size: 20px;">&#10133;</span>
+      <span class="particle" style="left:58%; animation-duration: 20s; animation-delay: -3s; font-size: 18px;">&#10084;</span>
+      <span class="particle" style="left:74%; animation-duration: 16s; animation-delay: -8s; font-size: 24px;">&#10133;</span>
+      <span class="particle" style="left:88%; animation-duration: 19s; animation-delay: -12s; font-size: 16px;">&#10084;</span>
+    </div>
+
+    <div class="care-hero-top">
+      <h2 class="care-hero-title">{{ health_center.name }}</h2>
+      <span class="safe-badge">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Campus Safe
+      </span>
+    </div>
+
+    {% if my_sos_active %}
+      <div class="sos-active-banner">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        Your SOS is active -- the campus team has been alerted.
+      </div>
+    {% else %}
+      <button class="sos-button" type="button" id="sos-open-btn">
+        <span class="sos-icon">&#128680;</span>
+        CAMPUS SOS
+      </button>
+
+      <div id="sos-flow" class="report-card sos-flow-panel">
+        <div class="sos-step active" data-step="type">
+          <h3>What's the emergency?</h3>
+          <div class="sos-type-grid">
+            {% for t in sos_types %}
+              <button class="sos-type-btn" type="button" data-type="{{ t }}">{{ t }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="sos-step" data-step="location">
+          <h3>Where are you?</h3>
+          <div class="field">
+            <input id="sos-location" type="text" maxlength="200" placeholder="e.g. Library, 2nd floor">
+          </div>
+          <button class="btn primary" type="button" id="sos-to-confirm">Next</button>
+        </div>
+        <div class="sos-step" data-step="confirm">
+          <h3>Confirm and send</h3>
+          <p id="sos-summary" class="hint"></p>
+          <button class="btn sos" type="button" id="sos-send">Send SOS</button>
+          <button class="btn ghost small" type="button" id="sos-cancel">Cancel</button>
+        </div>
+        <div class="sos-step" data-step="sent">
+          <div class="success-panel">
+            <svg class="success-check" viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"></circle><path d="M14 27l7 7 17-17"></path></svg>
+            <strong>Help requested.</strong>
+            <p class="hint">The campus health team has been notified of your location.</p>
+          </div>
+        </div>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if logged_in_user.is_admin() and active_sos %}
+    <section class="report-card">
+      <h2>Active emergencies ({{ active_sos|length }})</h2>
+      {% for sos in active_sos %}
+        <div class="ping-row">
+          <div>
+            <strong class="text-sos">{{ sos.emergency_type }}</strong> &middot; {{ sos.location }}
+            <div class="hint">{{ sos.user.name }} &middot; {{ sos.created_at.strftime('%H:%M') }}</div>
+          </div>
+          <button class="btn small success sos-resolve-btn" type="button" data-id="{{ sos.id }}">Mark resolved</button>
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  <!-- ============================================================ Stats -->
+  <div class="stats-band">
+    <div class="stat accent"><div class="value" data-count-to="{{ stats_served }}">0</div><div class="label">Students Served</div></div>
+    <div class="stat good"><div class="value" data-count-to="{{ todays_queue }}">0</div><div class="label">Today's Queue</div></div>
+    <div class="stat cool"><div class="value" data-count-to="{{ doctors|selectattr('available')|list|length }}">0</div><div class="label">Doctors Available</div></div>
+  </div>
+
+  <!-- ============================================================ Quick grid -->
+  <div class="quick-grid">
+    <div class="quick-card">
+      <span class="quick-card-icon">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
+      </span>
+      <h3>
+        {% if doctors|selectattr('available')|list|length > 0 %}
+          <span class="live-dot"></span>Doctor Available
+        {% else %}
+          <span class="live-dot offline"></span>No Doctor Right Now
+        {% endif %}
+      </h3>
+      <p>{{ health_center.timings }} &middot; {{ health_center.location }}</p>
+      <p class="hint">Emergency line: {{ health_center.phone }}</p>
+    </div>
+    <a class="quick-card quick-card-link" href="#book-appointment">
+      <span class="quick-card-icon">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      </span>
+      <h3>Book Appointment</h3>
+      <p>See a campus doctor at a time that works for you.</p>
+    </a>
+    <a class="quick-card quick-card-link" href="#blood-network">
+      <span class="quick-card-icon">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 2s7 7.58 7 12a7 7 0 1 1-14 0c0-4.42 7-12 7-12z"></path></svg>
+      </span>
+      <h3>Blood Donor Network</h3>
+      <p>Find or become a compatible campus donor.</p>
+    </a>
+  </div>
+
+  <!-- ============================================================ Appointments -->
+  <section class="report-card" id="book-appointment">
+    <h2>Book a doctor appointment</h2>
+
+    {% if my_upcoming_appointments %}
+      <p class="hint section-hint">Your upcoming appointments:
+        {% for a in my_upcoming_appointments %}
+          Dr. {{ a.doctor.name }} on {{ a.appointment_date.strftime('%d %b') }} at {{ a.time_slot }}{{ ', ' if not loop.last else '' }}
+        {% endfor %}
+      </p>
+    {% endif %}
+
+    {% if doctors %}
+      <div id="appt-flow">
+        <div class="field">
+          <label>Choose a doctor</label>
+          <div class="doctor-picker">
+            {% for d in doctors %}
+              <div class="doctor-option {{ 'unavailable' if not d.available else '' }}" data-doctor-id="{{ d.id }}" data-doctor-name="{{ d.name }}">
+                <span class="live-dot {{ '' if d.available else 'offline' }}"></span>
+                <span>
+                  <span class="doctor-name">Dr. {{ d.name }}</span>
+                  {% if d.specialty %}<span class="doctor-specialty">{{ d.specialty }}</span>{% endif %}
+                </span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="appt-date">Date</label>
+            <input id="appt-date" type="date">
+          </div>
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <div class="slot-grid">
+            {% for slot in appointment_slots %}
+              <button class="slot-btn" type="button" data-slot="{{ slot }}">{{ slot }}</button>
+            {% endfor %}
+          </div>
+        </div>
+        <button class="btn primary" type="button" id="appt-confirm">Confirm appointment</button>
+        <span id="appt-msg" class="msg"></span>
+      </div>
+      <div id="appt-success" hidden></div>
+    {% else %}
+      <p class="empty">No doctors listed yet.</p>
+    {% endif %}
+
+    {% if logged_in_user.is_admin() %}
+      <div class="checklist">
+        <h3>Manage doctors (admin)</h3>
+        <form id="doctor-form" method="post" action="{{ url_for('add_doctor') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row">
+            <div class="field">
+              <label for="doc-name">Name</label>
+              <input id="doc-name" name="name" type="text" maxlength="120" placeholder="e.g. Priya Sharma" required>
+            </div>
+            <div class="field">
+              <label for="doc-specialty">Specialty (optional)</label>
+              <input id="doc-specialty" name="specialty" type="text" maxlength="120" placeholder="e.g. General Physician">
+            </div>
+          </div>
+          <button class="btn small" type="submit">Add doctor</button>
+        </form>
+        {% if doctors %}
+          <div class="blood-grid">
+            {% for d in doctors %}
+              <div class="blood-card">
+                <strong>Dr. {{ d.name }}</strong>
+                <p>{{ d.specialty or 'General' }}</p>
+                <button class="btn small ghost doctor-toggle-btn" type="button" data-id="{{ d.id }}">
+                  {{ 'Mark unavailable' if d.available else 'Mark available' }}
+                </button>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </section>
+
+  <!-- ============================================================ Mental Wellness -->
+  <section class="report-card">
+    <h2>How are you feeling today?</h2>
+    <div class="mood-picker">
+      {% for m in moods %}
+        <button class="mood-btn {{ 'selected' if my_mood_today and my_mood_today.mood == m else '' }}" type="button" data-mood="{{ m }}">
+          {{ mood_emoji[m] }}
+          <span class="mood-label">{{ m }}</span>
+        </button>
+      {% endfor %}
+    </div>
+    <span id="mood-msg" class="msg"></span>
+
+    <div class="wellness-panel">
+      <div class="wellness-ring-wrap">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+          <circle class="wellness-ring-track" cx="60" cy="60" r="52"></circle>
+          <circle class="wellness-ring-progress" id="wellness-ring" cx="60" cy="60" r="52"
+                  stroke-dasharray="326.7" stroke-dashoffset="326.7"
+                  data-offset="{{ (326.7 - (326.7 * (wellness_score or 0) / 100))|round(2) }}"></circle>
+        </svg>
+        <div class="wellness-ring-label">{{ wellness_score if wellness_score is not none else '--' }}{{ '%' if wellness_score is not none else '' }}</div>
+      </div>
+      <div>
+        <strong>Campus wellness index</strong>
+        <p class="hint">
+          {% if wellness_score is not none %}
+            From {{ recent_mood_count }} check-in{{ '' if recent_mood_count == 1 else 's' }} across campus in the last 7 days.
+          {% else %}
+            No check-ins yet this week -- be the first.
+          {% endif %}
+        </p>
+        <div class="wellness-actions">
+          <button class="btn small ghost" type="button" id="breathing-toggle">Breathing exercise</button>
+          <button class="btn small ghost" type="button" id="counselor-toggle">Request counselor</button>
+          <button class="btn small ghost" type="button" id="support-toggle">Anonymous support</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="breathing-panel" hidden>
+      <div class="breathing-wrap">
+        <div class="breathing-circle" id="breathing-circle">Breathe in</div>
+        <p class="hint">Follow the circle. In for 4s, out for 4s.</p>
+        <button class="btn small ghost" type="button" id="breathing-stop">Stop</button>
+      </div>
+    </div>
+
+    <div id="counselor-panel" class="panel-spaced" hidden>
+      <form id="counselor-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label for="counselor-note">Anything you'd like the counselor to know? (optional)</label>
+          <textarea id="counselor-note" name="note" rows="2" maxlength="1000"></textarea>
+        </div>
+        <button class="btn small primary" type="submit">Request a session</button>
+        <span id="counselor-msg" class="msg"></span>
+      </form>
+    </div>
+
+    <div id="support-panel" class="panel-spaced" hidden>
+      <p class="hint section-hint">This message is <strong>not linked to your account</strong> -- not even an admin can see who sent it.</p>
+      <form id="support-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <textarea name="message" rows="3" maxlength="1000" placeholder="Say what's on your mind..." required></textarea>
+        </div>
+        <button class="btn small primary" type="submit">Send anonymously</button>
+        <span id="support-msg" class="msg"></span>
+      </form>
+    </div>
+
+    <div class="checklist">
+      <h3>Stress-relief resources</h3>
+      <ul>
+        <li>A short walk, hydration and sleep do more for stress than most people expect.</li>
+        <li>Talk to someone you trust -- a friend, family member, or the campus counselor.</li>
+        <li>If you're in crisis, please reach out to a local emergency helpline or campus emergency contact right away.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ============================================================ Blood network -->
+  <section class="report-card" id="blood-network">
+    <h2>Blood donor network</h2>
+
+    <div class="checklist checklist-first">
+      <h3>{{ 'Update' if my_donor_profile else 'Register' }} your donor profile</h3>
+      <form id="donor-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row">
+          <div class="field">
+            <label for="donor-group">Blood group</label>
+            <select id="donor-group" name="blood_group">
+              {% for g in blood_groups %}
+                <option value="{{ g }}" {{ 'selected' if my_donor_profile and my_donor_profile.blood_group == g else '' }}>{{ g }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="donor-location">Campus location</label>
+            <input id="donor-location" name="location" type="text" maxlength="150" value="{{ my_donor_profile.location if my_donor_profile else '' }}" placeholder="e.g. Hostel Block C">
+          </div>
+          <div class="field">
+            <label for="donor-phone">Phone (only shared if you accept a request)</label>
+            <input id="donor-phone" name="phone" type="tel" maxlength="32" value="{{ my_donor_profile.phone if my_donor_profile else '' }}">
+          </div>
+        </div>
+        <label class="checkbox-field"><input type="checkbox" id="donor-available" name="available" {{ 'checked' if not my_donor_profile or my_donor_profile.available else '' }}> Available to donate right now</label>
+        <button class="btn small primary" type="submit">Save profile</button>
+        <span id="donor-msg" class="msg"></span>
+      </form>
+    </div>
+
+    {% if my_pending_pings %}
+      <div class="checklist">
+        <h3>Requests for you ({{ my_pending_pings|length }})</h3>
+        {% for ping in my_pending_pings %}
+          <div class="ping-row">
+            <div>
+              <span class="blood-group-badge">{{ ping.request.blood_group }}</span>
+              {{ ping.request.requested_by.name }}{% if ping.request.note %} &middot; {{ ping.request.note }}{% endif %}
+            </div>
+            <div class="row row-tight">
+              <button class="btn small success ping-respond-btn" type="button" data-id="{{ ping.id }}" data-decision="accepted">Accept</button>
+              <button class="btn small ghost ping-respond-btn" type="button" data-id="{{ ping.id }}" data-decision="declined">Decline</button>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="checklist">
+      <h3>Request blood</h3>
+      <form id="blood-request-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="row">
+          <div class="field">
+            <label for="req-group">Blood group needed</label>
+            <select id="req-group" name="blood_group">
+              {% for g in blood_groups %}<option value="{{ g }}">{{ g }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="field grow">
+            <label for="req-note">Note (optional)</label>
+            <input id="req-note" name="note" type="text" maxlength="300" placeholder="e.g. Needed at Health Center by 6 PM">
+          </div>
+        </div>
+        <button class="btn small sos" type="submit">Request blood</button>
+        <span id="blood-request-msg" class="msg"></span>
+      </form>
+    </div>
+
+    {% if open_blood_requests %}
+      <div class="blood-grid">
+        {% for req in open_blood_requests %}
+          <div class="blood-card">
+            <span class="blood-group-badge">{{ req.blood_group }}</span>
+            <p>{{ req.requested_by.name }}</p>
+            {% if req.note %}<p>{{ req.note }}</p>{% endif %}
+            <p class="hint">{{ req.created_at.strftime('%d %b, %H:%M') }}</p>
+            {% if req.requested_by_id == logged_in_user.id %}
+              <button class="btn small ghost blood-check-responses" type="button" data-id="{{ req.id }}">Check responses</button>
+              <div class="blood-responses" id="blood-responses-{{ req.id }}"></div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">No open blood requests right now.</p>
+    {% endif %}
+  </section>
 
   {% if not ai_ready %}
-    <div class="flash err">AI is not configured. Set GEMINI_API_KEY in .env and restart the server to enable this page.</div>
+    <div class="flash err">AI is not configured. Set GEMINI_API_KEY in .env and restart the server to enable the two sections below.</div>
   {% endif %}
 
   <section class="report-card">
