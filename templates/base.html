@@ -18,38 +18,22 @@
     <span class="orb orb-3"></span>
   </div>
 
-  {% if logged_in_user %}
-    <header class="top">
-      <div class="wrap top-inner">
-        <a class="brand" href="{{ url_for('dashboard') }}">
-          <img src="{{ url_for('static', filename='logo.svg') }}" alt="">
-          Campusly
-        </a>
-        <nav class="main-nav">
-          <a href="{{ url_for('hackathons') }}" class="nav-hack {{ 'active' if request.endpoint == 'hackathons' else '' }}">Hackathons</a>
-          <a href="{{ url_for('internships') }}" class="nav-intern {{ 'active' if request.endpoint == 'internships' else '' }}">Internships</a>
-          <a href="{{ url_for('health') }}" class="nav-health {{ 'active' if request.endpoint == 'health' else '' }}">Health</a>
-          <a href="{{ url_for('lost_found') }}" class="nav-lost {{ 'active' if request.endpoint == 'lost_found' else '' }}">Lost &amp; Found</a>
-          {% if logged_in_user.is_super_admin() %}
-            <a href="{{ url_for('manage_users') }}" class="{{ 'active' if request.endpoint == 'manage_users' else '' }}">Users</a>
-          {% endif %}
-        </nav>
-        <div class="profile-menu" id="profile-menu">
-          <button class="profile-trigger" id="profile-trigger" type="button" aria-expanded="false" aria-haspopup="true">
-            <span class="role-badge role-{{ logged_in_user.role }}">{{ logged_in_user.role.replace('_', ' ') }}</span>
-            <span class="user-name">{{ logged_in_user.name.split(' ')[0] }}</span>
-            <svg class="icon chev" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"></polyline></svg>
-          </button>
-          <div class="profile-dropdown" id="profile-dropdown" hidden>
-            <form action="{{ url_for('logout') }}" method="post">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="profile-dropdown-item" type="submit">🚪 Log out</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </header>
-  {% endif %}
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="{{ url_for('dashboard') }}">
+        <img src="{{ url_for('static', filename='logo.svg') }}" alt="">
+        Campusly
+      </a>
+      <nav class="main-nav">
+        <a href="{{ url_for('hackathons') }}" class="nav-hack {{ 'active' if request.endpoint == 'hackathons' else '' }}">Hackathons</a>
+        <a href="{{ url_for('internships') }}" class="nav-intern {{ 'active' if request.endpoint == 'internships' else '' }}">Internships</a>
+        <a href="{{ url_for('health') }}" class="nav-health {{ 'active' if request.endpoint == 'health' else '' }}">Health</a>
+        <a href="{{ url_for('lost_found') }}" class="nav-lost {{ 'active' if request.endpoint == 'lost_found' else '' }}">Lost &amp; Found</a>
+        <a href="{{ url_for('manage_users') }}" class="{{ 'active' if request.endpoint == 'manage_users' else '' }}">Users</a>
+      </nav>
+      <span class="shared-badge" title="No sign-in -- everyone shares this workspace">Shared workspace</span>
+    </div>
+  </header>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -66,25 +50,6 @@
   </main>
 
   <script src="{{ url_for('static', filename='csrf.js') }}"></script>
-  <script>
-    (function () {
-      var trigger = document.getElementById("profile-trigger");
-      var dropdown = document.getElementById("profile-dropdown");
-      if (!trigger || !dropdown) return;
-      trigger.addEventListener("click", function (event) {
-        event.stopPropagation();
-        var open = dropdown.hidden;
-        dropdown.hidden = !open;
-        trigger.setAttribute("aria-expanded", String(open));
-      });
-      document.addEventListener("click", function (event) {
-        if (!dropdown.hidden && !dropdown.contains(event.target) && event.target !== trigger) {
-          dropdown.hidden = true;
-          trigger.setAttribute("aria-expanded", "false");
-        }
-      });
-    })();
-  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

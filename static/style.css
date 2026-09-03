@@ -305,9 +305,14 @@ h1, h2, h3 { letter-spacing: var(--tracking-tight); }
 .role-badge.role-admin { background: var(--cool-soft); color: var(--cool); }
 .role-badge.role-super_admin { background: var(--accent-soft); color: var(--accent-text); }
 
-.user-box .btn.ghost {
-  border-color: var(--border-strong);
-  color: var(--text);
+.shared-badge {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--text-faint);
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
 }
 
 .stat-pill {
@@ -2021,51 +2026,3 @@ tbody tr:last-child td { border-bottom: none; }
 .main-nav a.nav-health.active { color: var(--mod-health); --nav-accent: var(--mod-health); }
 .main-nav a.nav-lost.active { color: var(--mod-lost); --nav-accent: var(--mod-lost); }
 
-/* ---- Profile dropdown --------------------------------------------------- */
-
-.profile-menu { position: relative; }
-
-.profile-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  background: none;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  padding: 0.2rem;
-  font: inherit;
-}
-
-.profile-trigger .chev { transition: transform 0.15s var(--ease); color: var(--text-faint); }
-.profile-trigger[aria-expanded="true"] .chev { transform: rotate(180deg); }
-
-.profile-dropdown {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.5rem);
-  min-width: 170px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 0.4rem;
-  z-index: 30;
-}
-
-.profile-dropdown form { margin: 0; }
-
-.profile-dropdown-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: none;
-  border: none;
-  color: var(--text);
-  font: inherit;
-  font-size: var(--fs-sm);
-  padding: 0.5rem 0.6rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-}
-.profile-dropdown-item:hover { background: var(--bg-elev-2); }

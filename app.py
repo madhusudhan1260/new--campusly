@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_wtf import CSRFProtect
 
-from auth import current_user, hash_password, login_required, login_user, logout_user, role_required, verify_password
+from auth import current_user, hash_password, login_required, role_required
 from extensions import db
 from live_feeds import fetch_live_hackathons, fetch_live_internships
 from models import (
@@ -96,60 +96,16 @@ def inject_user():
 
 
 # ---------------------------------------------------------------------------
-# Auth
+# Auth -- removed. Every visitor shares one account (see auth.py). These
+# three redirects exist only so an old bookmark to /login, /signup or
+# /logout lands somewhere sensible instead of 404ing.
 # ---------------------------------------------------------------------------
 
 @app.route("/signup", methods=["GET", "POST"])
-def signup():
-    if current_user():
-        return redirect(url_for("dashboard"))
-
-    if request.method == "POST":
-        name = (request.form.get("name") or "").strip()[:120]
-        email = (request.form.get("email") or "").strip().lower()[:255]
-        password = request.form.get("password") or ""
-
-        if not name or not email or not password:
-            flash("Please fill in your name, email and password.", "error")
-        elif len(password) < 8:
-            flash("Password must be at least 8 characters.", "error")
-        elif User.query.filter_by(email=email).first() is not None:
-            flash("An account with that email already exists.", "error")
-        else:
-            user = User(name=name, email=email, password_hash=hash_password(password), role="student")
-            db.session.add(user)
-            db.session.commit()
-            login_user(user)
-            flash("Welcome to Campusly!", "success")
-            return redirect(url_for("dashboard"))
-
-    return render_template("signup.html")
-
-
 @app.route("/login", methods=["GET", "POST"])
-def login():
-    if current_user():
-        return redirect(url_for("dashboard"))
-
-    if request.method == "POST":
-        email = (request.form.get("email") or "").strip().lower()
-        password = request.form.get("password") or ""
-        user = User.query.filter_by(email=email).first()
-
-        if user is None or not verify_password(password, user.password_hash):
-            flash("Incorrect email or password.", "error")
-        else:
-            login_user(user)
-            return redirect(url_for("dashboard"))
-
-    return render_template("login.html")
-
-
 @app.post("/logout")
-def logout():
-    logout_user()
-    flash("Logged out.", "success")
-    return redirect(url_for("login"))
+def _auth_redirect():
+    return redirect(url_for("dashboard"))
 
 
 # ---------------------------------------------------------------------------
