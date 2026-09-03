@@ -84,8 +84,33 @@
             <p class="loc"><svg class="icon" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> {{ item.location }}</p>
             <p class="cat">{{ item.category }}</p>
             {% if item.description %}<p class="desc">{{ item.description }}</p>{% endif %}
+
             {% if item.status == 'Available' %}
-              <button class="btn claim" type="button" data-id="{{ item.id }}">This is mine</button>
+              {% if item.id in my_claimed_item_ids %}
+                <p class="hint claim-sent">Claim submitted -- collect from {{ office }}.</p>
+              {% else %}
+                <button class="btn claim" type="button" data-id="{{ item.id }}">This is mine</button>
+                <form class="claim-form" data-id="{{ item.id }}" hidden>
+                  <textarea name="details" rows="2" maxlength="500" placeholder="Prove it's yours -- e.g. &quot;blue case, cracked corner&quot;" required></textarea>
+                  <div class="row row-tight">
+                    <button class="btn primary small" type="submit">Submit claim</button>
+                    <button class="btn ghost small claim-cancel" type="button">Cancel</button>
+                  </div>
+                  <span class="msg claim-msg"></span>
+                </form>
+              {% endif %}
+            {% endif %}
+
+            {% if item.id in manageable_item_ids %}
+              <div class="manage-row">
+                <button class="btn ghost small view-claims-btn" type="button" data-id="{{ item.id }}">
+                  View claims{% if claim_counts.get(item.id) %} ({{ claim_counts.get(item.id) }}){% endif %}
+                </button>
+                {% if item.status == 'Available' %}
+                  <button class="btn ghost small return-btn" type="button" data-id="{{ item.id }}">Mark returned</button>
+                {% endif %}
+              </div>
+              <div class="claims-list" id="claims-{{ item.id }}" hidden></div>
             {% endif %}
           </div>
         </article>

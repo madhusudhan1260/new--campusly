@@ -34,6 +34,7 @@ from models import (
     BloodRequest,
     Bookmark,
     CATEGORIES,
+    Claim,
     CounselorRequest,
     Doctor,
     HealthAppointment,
@@ -51,6 +52,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 ITEM_CATEGORIES = ["Electronics", "Bags", "Books", "Clothing", "ID Cards", "Keys", "Bottles", "Other"]
+LOST_FOUND_OFFICE = os.environ.get("LOST_FOUND_OFFICE", "the DOSS office").strip()
 
 HACKATHON_MODES = ["Online", "Offline", "Hybrid"]
 INTERNSHIP_MODES = ["Remote", "Onsite", "Hybrid"]
@@ -282,6 +284,7 @@ def analyze_image(image_bytes: bytes, mime_type: str) -> dict:
 @app.route("/lost-found")
 @login_required
 def lost_found():
+    user = current_user()
     query_text = (request.args.get("q") or "").strip()
     category = (request.args.get("category") or "").strip()
 
@@ -294,6 +297,16 @@ def lost_found():
 
     items = query.order_by(Item.created_at.desc()).all()
 
+    claim_counts = dict(
+        db.session.query(Claim.item_id, db.func.count(Claim.id)).group_by(Claim.item_id).all()
+    )
+    my_claimed_item_ids = {
+        c.item_id for c in Claim.query.filter_by(claimant_id=user.id).with_entities(Claim.item_id).all()
+    }
+    manageable_item_ids = {
+        item.id for item in items if item.reported_by_id == user.id or user.is_admin()
+    }
+
     return render_template(
         "lost_found.html",
         items=items,
@@ -301,6 +314,10 @@ def lost_found():
         filters={"q": query_text, "category": category},
         ai_ready=bool(GEMINI_API_KEY),
         total_available=Item.query.filter_by(status="Available").count(),
+        office=LOST_FOUND_OFFICE,
+        claim_counts=claim_counts,
+        my_claimed_item_ids=my_claimed_item_ids,
+        manageable_item_ids=manageable_item_ids,
     )
 
 
@@ -346,9 +363,67 @@ def claim_item(item_id: int):
     item = db.session.get(Item, item_id)
     if item is None:
         return jsonify({"ok": False, "error": "That item no longer exists."}), 404
-    if item.status != "Available":
-        return jsonify({"ok": False, "error": "Someone already claimed this item."}), 409
-    item.status = "Claimed"
+    if item.status == "Returned":
+        return jsonify({"ok": False, "error": "This item has already been returned to its owner."}), 409
+
+    details = (request.form.get("details") or "").strip()[:500]
+    if not details:
+        return jsonify({"ok": False, "error": "Describe something that proves it's yours (e.g. \"blue case, cracked corner\")."}), 400
+
+    user = current_user()
+    existing = Claim.query.filter_by(item_id=item.id, claimant_id=user.id).first()
+    if existing is not None:
+        return jsonify({"ok": False, "error": "You've already submitted a claim for this item."}), 409
+
+    claim = Claim(item_id=item.id, claimant_id=user.id, details=details)
+    db.session.add(claim)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "ok": True,
+            "message": f"Claim submitted. Collect it from {LOST_FOUND_OFFICE} -- bring ID and be ready to describe it in person.",
+        }
+    )
+
+
+@app.get("/lost-found/<int:item_id>/claims")
+@login_required
+def item_claims(item_id: int):
+    item = db.session.get(Item, item_id)
+    if item is None:
+        abort(404)
+    user = current_user()
+    if item.reported_by_id != user.id and not user.is_admin():
+        abort(403)
+
+    claims = Claim.query.filter_by(item_id=item_id).order_by(Claim.created_at.asc()).all()
+    return jsonify(
+        {
+            "ok": True,
+            "claims": [
+                {
+                    "name": c.claimant.name,
+                    "email": c.claimant.email,
+                    "details": c.details,
+                    "submitted": c.created_at.strftime("%d %b, %H:%M"),
+                }
+                for c in claims
+            ],
+        }
+    )
+
+
+@app.post("/lost-found/<int:item_id>/return")
+@login_required
+def return_item(item_id: int):
+    item = db.session.get(Item, item_id)
+    if item is None:
+        return jsonify({"ok": False, "error": "That item no longer exists."}), 404
+    user = current_user()
+    if item.reported_by_id != user.id and not user.is_admin():
+        abort(403)
+    item.status = "Returned"
     db.session.commit()
     return jsonify({"ok": True})
 

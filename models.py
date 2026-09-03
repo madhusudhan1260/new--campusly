@@ -63,6 +63,25 @@ class Item(db.Model):
     reported_by = db.relationship("User", foreign_keys=[reported_by_id])
 
 
+class Claim(db.Model):
+    """A claim of ownership on a found item.
+
+    More than one person can claim the same item -- proving ownership (e.g.
+    describing a mark only the real owner would know) happens in person when
+    they collect it, not in the app. This just collects everyone's claim
+    details so whoever hands the item over has something to check against.
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    item_id = db.Column(db.Integer, db.ForeignKey("item.id"), nullable=False, index=True)
+    claimant_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    details = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    item = db.relationship("Item", foreign_keys=[item_id], backref=db.backref("claims", order_by="Claim.created_at"))
+    claimant = db.relationship("User", foreign_keys=[claimant_id])
+
+
 class Opportunity(db.Model):
     """A hackathon or internship posted to the curated board.
 

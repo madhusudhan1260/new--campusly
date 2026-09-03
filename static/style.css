@@ -1683,3 +1683,42 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .feed-credit a { color: var(--text-dim); }
+
+/* ---- Lost & Found claim flow ------------------------------------------- */
+
+.claim-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.claim-form textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.5rem 0.6rem;
+}
+
+.claim-form .btn { align-self: flex-start; }
+
+.claim-sent {
+  color: var(--good);
+  font-weight: 600;
+}
+
+.manage-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.4rem;
+}
+
+.claims-list {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
