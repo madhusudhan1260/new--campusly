@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: campusly
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-flash-latest
+      - key: SUPER_ADMIN_EMAIL
+        sync: false
+      - key: SUPER_ADMIN_PASSWORD
+        sync: false
+      - key: HEALTH_CENTER_NAME
+        value: Campus Health Center
+      - key: HEALTH_CENTER_PHONE
+        sync: false
+      - key: HEALTH_CENTER_TIMINGS
+        value: "Mon-Sat, 8:00 AM - 8:00 PM"
+      - key: HEALTH_CENTER_LOCATION
+        value: Main Campus, Block A
