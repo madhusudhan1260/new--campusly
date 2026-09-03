@@ -124,6 +124,17 @@
     </a>
   </div>
 
+  <!-- ============================================================ Campus health services -->
+  <h2 class="section-title">Campus Health Services</h2>
+  <p class="hint">All run out of {{ health_center.location }} -- shown as separate services since that's how they work, not separate buildings.</p>
+  <div class="services-grid">
+    <a class="service-card" href="#book-appointment">🏥<span>Health Center</span><small>Doctor visits &amp; appointments</small></a>
+    <a class="service-card" href="#book-appointment">💊<span>Pharmacy Desk</span><small>Ask your doctor during your visit</small></a>
+    <a class="service-card" href="#sos-open-btn">🚑<span>Emergency Point</span><small>Use the SOS button above</small></a>
+    <a class="service-card" href="#counselor-panel-anchor">🧠<span>Counseling Center</span><small>Request a counselor below</small></a>
+    <a class="service-card" href="#blood-network">🩸<span>Blood Donation Point</span><small>Register or request below</small></a>
+  </div>
+
   <!-- ============================================================ Appointments -->
   <section class="report-card" id="book-appointment">
     <h2>Book a doctor appointment</h2>
@@ -147,6 +158,9 @@
                 <span>
                   <span class="doctor-name">Dr. {{ d.name }}</span>
                   {% if d.specialty %}<span class="doctor-specialty">{{ d.specialty }}</span>{% endif %}
+                  {% if d.available %}
+                    <span class="doctor-queue">Queue: {{ doctor_queues.get(d.id, 0) }} &middot; ~{{ doctor_queues.get(d.id, 0) * 15 }} min wait (est.)</span>
+                  {% endif %}
                 </span>
               </div>
             {% endfor %}
@@ -238,7 +252,7 @@
   </section>
 
   <!-- ============================================================ Mental Wellness -->
-  <section class="report-card">
+  <section class="report-card" id="counselor-panel-anchor">
     <h2>How are you feeling today?</h2>
     <div class="mood-picker">
       {% for m in moods %}
@@ -276,6 +290,22 @@
         </div>
       </div>
     </div>
+
+    {% if campus_wellness %}
+      <div class="campus-wellness-bar-wrap">
+        <p class="hint">Anonymous aggregate only -- no individual check-in is ever shown, even to admins. Based on {{ campus_wellness.checkins }} check-in{{ '' if campus_wellness.checkins == 1 else 's' }} this week.</p>
+        <div class="campus-wellness-bar">
+          <span class="cw-positive" style="width: {{ campus_wellness.positive_pct }}%"></span>
+          <span class="cw-neutral" style="width: {{ campus_wellness.neutral_pct }}%"></span>
+          <span class="cw-low" style="width: {{ campus_wellness.low_pct }}%"></span>
+        </div>
+        <div class="campus-wellness-legend">
+          <span><i class="cw-dot cw-positive"></i>Positive {{ campus_wellness.positive_pct }}%</span>
+          <span><i class="cw-dot cw-neutral"></i>Neutral {{ campus_wellness.neutral_pct }}%</span>
+          <span><i class="cw-dot cw-low"></i>Low {{ campus_wellness.low_pct }}%</span>
+        </div>
+      </div>
+    {% endif %}
 
     <div id="breathing-panel" hidden>
       <div class="breathing-wrap">
@@ -408,6 +438,22 @@
     {% else %}
       <p class="empty">No open blood requests right now.</p>
     {% endif %}
+  </section>
+
+  <!-- ============================================================ Health resources library -->
+  <section class="report-card">
+    <h2>Health resources library</h2>
+    <p class="hint section-hint">General, educational information -- not medical advice. For anything urgent or ongoing, see a doctor at {{ health_center.name }} or your own physician.</p>
+    <div class="resource-grid">
+      <details class="resource-item"><summary>🩹 First aid</summary><ul><li>Clean a minor cut with running water before covering it.</li><li>For a sprain: rest, ice, compression, elevation.</li><li>Call for help immediately for chest pain, severe bleeding, or trouble breathing.</li></ul></details>
+      <details class="resource-item"><summary>🥗 Nutrition</summary><ul><li>Regular meals help more than skipping and overcompensating later.</li><li>Keep water nearby -- thirst is often mistaken for hunger or fatigue.</li><li>A campus dietitian or doctor can help with specific dietary needs.</li></ul></details>
+      <details class="resource-item"><summary>🧠 Mental wellness</summary><ul><li>Naming a feeling ("I'm stressed about X") reduces its intensity for many people.</li><li>Short breaks between study blocks help focus more than pushing through.</li><li>The counselor request above is confidential -- use it.</li></ul></details>
+      <details class="resource-item"><summary>🚨 Emergency procedures</summary><ul><li>Use the SOS button above for a campus emergency -- it alerts the health team directly.</li><li>Know the location of {{ health_center.name }}: {{ health_center.location }}.</li><li>For life-threatening emergencies, also call local emergency services.</li></ul></details>
+      <details class="resource-item"><summary>♀ Women's health</summary><ul><li>The campus health center can advise on reproductive and general women's health.</li><li>Bring a list of symptoms and their timing to any appointment -- it speeds up diagnosis.</li></ul></details>
+      <details class="resource-item"><summary>🏃 Fitness</summary><ul><li>Even short daily walks measurably improve mood and sleep.</li><li>Warm up before intense exercise to reduce injury risk.</li></ul></details>
+      <details class="resource-item"><summary>😴 Sleep</summary><ul><li>A consistent sleep/wake time matters more than total hours alone.</li><li>Screens before bed delay sleep onset for most people -- try a wind-down buffer.</li></ul></details>
+      <details class="resource-item"><summary>🧘 Stress management</summary><ul><li>The breathing exercise above is a quick, evidence-based way to calm your nervous system.</li><li>Chronic stress is worth discussing with a counselor, not just managing alone.</li></ul></details>
+    </div>
   </section>
 
   {% if not ai_ready %}

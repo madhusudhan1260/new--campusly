@@ -1364,6 +1364,14 @@ def health():
     doctors = Doctor.query.order_by(Doctor.available.desc(), Doctor.name.asc()).all()
     todays_queue = HealthAppointment.query.filter_by(appointment_date=today, status="confirmed").count()
 
+    # Per-doctor queue: real count of today's confirmed bookings. The wait
+    # estimate is a plain 15-min-per-slot multiplier, not a measurement --
+    # flagged as an estimate in the UI rather than presented as fact.
+    doctor_queues = {
+        d.id: HealthAppointment.query.filter_by(doctor_id=d.id, appointment_date=today, status="confirmed").count()
+        for d in doctors
+    }
+
     active_sos = (
         SOSRequest.query.filter_by(status="active").order_by(SOSRequest.created_at.desc()).all()
         if user.is_admin()
@@ -1380,6 +1388,23 @@ def health():
         if recent_moods
         else None
     )
+
+    # Anonymous, aggregate only -- no per-person breakdown is possible or
+    # shown, even though there's one shared account. Buckets "great"/"good"
+    # as positive, "okay" as neutral, "low"/"stressed" as low, matching the
+    # 3-band view campus wellness dashboards use.
+    campus_wellness = None
+    if recent_moods:
+        positive = sum(1 for m in recent_moods if m.mood in ("great", "good"))
+        neutral = sum(1 for m in recent_moods if m.mood == "okay")
+        low = sum(1 for m in recent_moods if m.mood in ("low", "stressed"))
+        total = len(recent_moods)
+        campus_wellness = {
+            "positive_pct": round(100 * positive / total),
+            "neutral_pct": round(100 * neutral / total),
+            "low_pct": round(100 * low / total),
+            "checkins": total,
+        }
 
     my_donor_profile = BloodDonor.query.filter_by(user_id=user.id).first()
     open_blood_requests = (
@@ -1422,7 +1447,9 @@ def health():
         "health.html",
         ai_ready=bool(GEMINI_API_KEY),
         doctors=doctors,
+        doctor_queues=doctor_queues,
         medicine_reminders=medicine_reminders,
+        campus_wellness=campus_wellness,
         todays_queue=todays_queue,
         active_sos=active_sos,
         my_sos_active=my_sos_active,

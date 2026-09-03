@@ -1598,6 +1598,7 @@ tbody tr:last-child td { border-bottom: none; }
 .doctor-option.unavailable { opacity: 0.5; pointer-events: none; }
 .doctor-option .doctor-name { font-weight: 600; }
 .doctor-option .doctor-specialty { color: var(--text-faint); font-size: var(--fs-xs); display: block; }
+.doctor-option .doctor-queue { color: var(--teal); font-size: var(--fs-2xs); display: block; margin-top: 0.1rem; }
 
 .slot-grid {
   display: grid;
@@ -2403,4 +2404,93 @@ tbody tr:last-child td { border-bottom: none; }
 .interview-q { margin-bottom: 0.5rem; }
 .interview-q p { margin: 0 0 0.3rem; }
 .interview-a { color: var(--text-dim); margin: 0.3rem 0 0; }
+
+/* ---- Campus health services (schematic) ---------------------------------- */
+
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.7rem;
+  margin: 0.8rem 0 1.5rem;
+}
+
+.service-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 0.7rem;
+  text-decoration: none;
+  color: var(--text);
+  font-size: 1.8rem;
+  transition: border-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.service-card:hover { border-color: var(--mod-health); transform: translateY(-3px); }
+.service-card span { font-size: var(--fs-sm); font-weight: 700; }
+.service-card small { font-size: var(--fs-2xs); color: var(--text-faint); font-weight: 400; }
+
+/* ---- Anonymous campus wellness bar --------------------------------------- */
+
+.campus-wellness-bar-wrap { margin-top: 1rem; }
+
+.campus-wellness-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 0.4rem 0 0.5rem;
+}
+.cw-positive { background: var(--good); }
+.cw-neutral { background: var(--warn); }
+.cw-low { background: var(--hot); }
+
+.campus-wellness-legend {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: var(--fs-2xs);
+  color: var(--text-dim);
+}
+.cw-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 0.3rem;
+}
+
+/* ---- Health resources library --------------------------------------------- */
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+}
+
+.resource-item {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+}
+
+.resource-item summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--fs-sm);
+}
+
+.resource-item ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
 
