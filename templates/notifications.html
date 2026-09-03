@@ -7,7 +7,8 @@
   {% if items %}
     <div class="activity-list">
       {% for n in items %}
-        <a class="activity-item notif-item" href="{{ n.url }}">
+        <a class="activity-item notif-item notif-{{ n.priority }}" href="{{ n.url }}">
+          <span class="notif-priority-tag notif-tag-{{ n.priority }}">{{ priorities[n.priority].label }}</span>
           <span class="activity-icon">{{ n.icon }}</span>
           <div class="activity-body">
             <p class="activity-detail">{{ n.text }}</p>

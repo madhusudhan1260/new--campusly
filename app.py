@@ -313,38 +313,33 @@ def search():
 # a page that answers "what should I look at right now."
 # ---------------------------------------------------------------------------
 
+NOTIFICATION_PRIORITIES = {
+    "urgent": {"label": "Urgent", "icon": "🚨"},
+    "deadline": {"label": "Deadline", "icon": "⏰"},
+    "match": {"label": "Match", "icon": "🔎"},
+    "schedule": {"label": "Schedule", "icon": "📅"},
+}
+
+
 def _notification_items() -> list[dict]:
     today = date.today()
     items = []
 
-    claimed_items = [i for i in Item.query.filter_by(status="Available").all() if i.claims]
-    for i in claimed_items:
-        items.append(
-            {
-                "icon": "🔎",
-                "text": f'"{i.name}" has {len(i.claims)} claim(s) awaiting review.',
-                "url": url_for("lost_found"),
-            }
-        )
-
-    pending_pings = BloodPing.query.filter_by(status="pending").count()
-    if pending_pings:
-        items.append(
-            {"icon": "🩸", "text": f"{pending_pings} blood donor ping(s) awaiting a response.", "url": url_for("health")}
-        )
-
-    todays_appointments = HealthAppointment.query.filter_by(status="confirmed", appointment_date=today).count()
-    if todays_appointments:
-        items.append({"icon": "🏥", "text": f"{todays_appointments} appointment(s) today.", "url": url_for("health")})
-
     active_sos = SOSRequest.query.filter_by(status="active").count()
     if active_sos:
-        items.append({"icon": "🚨", "text": f"{active_sos} active SOS alert(s) need attention.", "url": url_for("health")})
-
-    pending_counselor = CounselorRequest.query.filter_by(status="pending").count()
-    if pending_counselor:
         items.append(
-            {"icon": "🧠", "text": f"{pending_counselor} counselor request(s) pending.", "url": url_for("health")}
+            {"priority": "urgent", "icon": "🚨", "text": f"{active_sos} active SOS alert(s) need attention.", "url": url_for("health")}
+        )
+
+    open_blood_requests = BloodRequest.query.filter_by(status="open").count()
+    if open_blood_requests:
+        items.append(
+            {
+                "priority": "urgent",
+                "icon": "🩸",
+                "text": f"{open_blood_requests} open blood request(s) still unfulfilled.",
+                "url": url_for("health"),
+            }
         )
 
     week_out = today + timedelta(days=7)
@@ -357,9 +352,66 @@ def _notification_items() -> list[dict]:
     if closing_soon:
         items.append(
             {
-                "icon": "⏳",
+                "priority": "deadline",
+                "icon": "⏰",
                 "text": f"{closing_soon} hackathon/internship listing(s) closing within a week.",
                 "url": url_for("hackathons"),
+            }
+        )
+
+    claimed_items = [i for i in Item.query.filter_by(status="Available").all() if i.claims]
+    for i in claimed_items:
+        items.append(
+            {
+                "priority": "match",
+                "icon": "🔎",
+                "text": f'"{i.name}" has {len(i.claims)} claim(s) awaiting review.',
+                "url": url_for("lost_found"),
+            }
+        )
+
+    similar = _similar_items(Item.query.filter_by(status="Available").all())
+    seen_pairs = set()
+    for item_id, matches in similar.items():
+        for m in matches:
+            pair = tuple(sorted((item_id, m.id)))
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
+            items.append(
+                {
+                    "priority": "match",
+                    "icon": "🔎",
+                    "text": f'A new item report may match an existing report: "{m.name}".',
+                    "url": url_for("lost_found"),
+                }
+            )
+
+    pending_pings = BloodPing.query.filter_by(status="pending").count()
+    if pending_pings:
+        items.append(
+            {
+                "priority": "match",
+                "icon": "🩸",
+                "text": f"{pending_pings} blood donor ping(s) awaiting a response.",
+                "url": url_for("health"),
+            }
+        )
+
+    todays_appointments = HealthAppointment.query.filter_by(status="confirmed", appointment_date=today).count()
+    if todays_appointments:
+        items.append(
+            {"priority": "schedule", "icon": "📅", "text": f"{todays_appointments} appointment(s) today.", "url": url_for("health")}
+        )
+
+    pending_counselor = CounselorRequest.query.filter_by(status="pending").count()
+    if pending_counselor:
+        items.append(
+            {
+                "priority": "schedule",
+                "icon": "🧠",
+                "text": f"{pending_counselor} counselor request(s) pending.",
+                "url": url_for("health"),
             }
         )
 
@@ -369,7 +421,13 @@ def _notification_items() -> list[dict]:
 @app.route("/notifications")
 @login_required
 def notifications():
-    return render_template("notifications.html", items=_notification_items())
+    order = ("urgent", "deadline", "match", "schedule")
+    items = _notification_items()
+    return render_template(
+        "notifications.html",
+        items=sorted(items, key=lambda n: order.index(n["priority"])),
+        priorities=NOTIFICATION_PRIORITIES,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1038,8 +1096,17 @@ def create_team(opportunity_id: int):
     if not name:
         return jsonify({"ok": False, "error": "Give the team a name."}), 400
     looking_for = (request.form.get("looking_for") or "").strip()[:300]
+    max_members = request.form.get("max_members", type=int)
+    if max_members is not None and not (1 <= max_members <= 20):
+        max_members = None
 
-    team = Team(opportunity_id=opportunity_id, name=name, looking_for=looking_for or None, created_by_id=current_user().id)
+    team = Team(
+        opportunity_id=opportunity_id,
+        name=name,
+        looking_for=looking_for or None,
+        max_members=max_members,
+        created_by_id=current_user().id,
+    )
     db.session.add(team)
     db.session.flush()
 

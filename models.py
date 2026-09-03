@@ -199,7 +199,8 @@ class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     opportunity_id = db.Column(db.Integer, db.ForeignKey("opportunity.id"), nullable=False, index=True)
     name = db.Column(db.String(120), nullable=False)
-    looking_for = db.Column(db.String(300), nullable=True)  # e.g. "1 designer, 1 backend dev"
+    looking_for = db.Column(db.String(300), nullable=True)  # comma-separated roles, e.g. "ML Engineer, Frontend Developer"
+    max_members = db.Column(db.Integer, nullable=True)
     created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

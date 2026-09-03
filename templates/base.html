@@ -36,6 +36,7 @@
         <form class="nav-search" action="{{ url_for('search') }}" method="get">
           <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
           <input type="search" name="q" placeholder="Search Campusly…" value="{{ request.args.get('q', '') if request.endpoint == 'search' else '' }}">
+          <kbd class="cmdk-hint">⌘K</kbd>
         </form>
         <a class="nav-icon-link" href="{{ url_for('notifications') }}" aria-label="Notifications" title="Notifications">
           <svg class="icon" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
@@ -48,6 +49,33 @@
       </div>
     </div>
   </header>
+
+  <script id="cmdk-data" type="application/json">
+    {
+      "searchUrl": {{ url_for('search') | tojson }},
+      "commands": [
+        {"icon": "🚀", "label": "Find Hackathons", "url": {{ url_for('hackathons') | tojson }}},
+        {"icon": "💼", "label": "Find Internships", "url": {{ url_for('internships') | tojson }}},
+        {"icon": "🏥", "label": "Book Health Appointment", "url": {{ (url_for('health') + '#book-appointment') | tojson }}},
+        {"icon": "🔎", "label": "Report Lost Item", "url": {{ url_for('lost_found') | tojson }}},
+        {"icon": "📊", "label": "Open Analytics", "url": {{ url_for('admin_analytics') | tojson }}},
+        {"icon": "🔔", "label": "Notifications", "url": {{ url_for('notifications') | tojson }}},
+        {"icon": "👤", "label": "My Profile", "url": {{ url_for('profile') | tojson }}},
+        {"icon": "🏠", "label": "Dashboard", "url": {{ url_for('dashboard') | tojson }}}
+      ]
+    }
+  </script>
+
+  <div class="cmdk-overlay" id="cmdk-overlay" hidden>
+    <div class="cmdk-box" role="dialog" aria-label="Command palette">
+      <div class="cmdk-input-row">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="cmdk-input" placeholder="Search Campusly or jump to a page…" autocomplete="off">
+        <kbd>Esc</kbd>
+      </div>
+      <div class="cmdk-list" id="cmdk-list"></div>
+    </div>
+  </div>
 
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -64,6 +92,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='csrf.js') }}"></script>
+  <script src="{{ url_for('static', filename='command_palette.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

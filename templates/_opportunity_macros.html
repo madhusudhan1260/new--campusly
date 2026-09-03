@@ -18,6 +18,7 @@
     {% if op.deadline %}
       {% set days_left = (op.deadline - today).days %}
       <p class="op-deadline {{ 'urgent' if 0 <= days_left <= 3 else 'soon' if 4 <= days_left <= 7 else '' }} {{ 'past' if days_left < 0 else '' }}">
+        {% if days_left >= 0 %}<span class="urgency-dot {{ 'red' if days_left < 3 else 'yellow' if days_left <= 7 else 'green' }}"></span>{% endif %}
         {% if days_left < 0 %}Deadline passed{% elif days_left == 0 %}Closes today{% elif days_left == 1 %}Closes tomorrow{% else %}Closes in {{ days_left }} days{% endif %}
         &middot; {{ op.deadline.strftime('%d %b %Y') }}
       </p>
@@ -80,8 +81,18 @@
       <div class="teams-panel" id="teams-{{ op.id }}" hidden>
         {% for t in teams %}
           <div class="team-card">
-            <h4>{{ t.name }}</h4>
-            {% if t.looking_for %}<p class="looking">Looking for: {{ t.looking_for }}</p>{% endif %}
+            <div class="team-card-head">
+              <h4>{{ t.name }}</h4>
+              {% if t.max_members %}<span class="member-count">Members: {{ t.members|length }}/{{ t.max_members }}</span>{% endif %}
+            </div>
+            {% if t.looking_for %}
+              <p class="looking">Looking for:</p>
+              <div class="role-tags">
+                {% for role in t.looking_for.split(',') %}
+                  {% if role.strip() %}<span class="role-tag">{{ role.strip() }}</span>{% endif %}
+                {% endfor %}
+              </div>
+            {% endif %}
             {% if t.members %}
               <ul>
                 {% for m in t.members %}<li>{{ m.name }}{% if m.role %} &ndash; {{ m.role }}{% endif %}</li>{% endfor %}
@@ -91,7 +102,8 @@
         {% endfor %}
         <form class="team-form" data-id="{{ op.id }}">
           <input type="text" name="name" placeholder="Team name" maxlength="120" required>
-          <input type="text" name="looking_for" placeholder="Looking for (e.g. 1 designer, 1 backend dev)" maxlength="300">
+          <input type="text" name="looking_for" placeholder="Looking for (comma-separated, e.g. ML Engineer, Frontend Developer)" maxlength="300">
+          <input type="number" name="max_members" placeholder="Max team size (optional)" min="1" max="20">
           <textarea name="members" rows="2" placeholder="Members, one per line: Name - Role"></textarea>
           <button class="btn primary small" type="submit">Create team</button>
           <span class="msg team-msg"></span>

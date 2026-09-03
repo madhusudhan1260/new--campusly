@@ -961,6 +961,17 @@ textarea { width: 100%; resize: vertical; font-family: inherit; }
   color: var(--text-faint);
 }
 
+.urgency-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 0.35rem;
+}
+.urgency-dot.green { background: var(--good); }
+.urgency-dot.yellow { background: var(--warn); }
+.urgency-dot.red { background: var(--hot); }
+
 .op-eligibility {
   font-size: var(--fs-xs);
   color: var(--text-faint);
@@ -2124,9 +2135,28 @@ tbody tr:last-child td { border-bottom: none; }
 .notif-item {
   text-decoration: none;
   color: inherit;
+  border-left: 3px solid var(--border);
   transition: border-color 0.15s var(--ease), transform 0.15s var(--ease);
 }
 .notif-item:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+.notif-item.notif-urgent { border-left-color: var(--hot); }
+.notif-item.notif-deadline { border-left-color: var(--warn); }
+.notif-item.notif-match { border-left-color: var(--mod-intern); }
+.notif-item.notif-schedule { border-left-color: var(--cool); }
+
+.notif-priority-tag {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.notif-tag-urgent { background: var(--hot-soft); color: var(--hot); }
+.notif-tag-deadline { background: var(--warn-soft); color: var(--warn); }
+.notif-tag-match { background: var(--mod-intern-soft); color: var(--mod-intern); }
+.notif-tag-schedule { background: var(--cool-soft); color: var(--cool); }
 
 /* ---- Teams (hackathons) -------------------------------------------------- */
 
@@ -2148,9 +2178,37 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 0.6rem 0.7rem;
 }
 
-.team-card h4 { margin: 0 0 0.2rem; font-size: var(--fs-sm); }
-.team-card .looking { font-size: var(--fs-2xs); color: var(--mod-hack); margin: 0.1rem 0; }
+.team-card h4 { margin: 0; font-size: var(--fs-sm); }
+.team-card .looking { font-size: var(--fs-2xs); color: var(--mod-hack); margin: 0.3rem 0 0.15rem; }
 .team-card ul { margin: 0.3rem 0 0; padding-left: 1.1rem; font-size: var(--fs-xs); color: var(--text-dim); }
+
+.team-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.member-count {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.role-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.role-tag {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  background: var(--mod-hack-soft);
+  color: var(--mod-hack);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
 
 .team-form {
   display: flex;
@@ -2197,4 +2255,107 @@ tbody tr:last-child td { border-bottom: none; }
 .reminder-row.inactive { opacity: 0.5; }
 .reminder-time { font-weight: 700; font-variant-numeric: tabular-nums; }
 .reminder-info { flex: 1; font-size: var(--fs-xs); color: var(--text-dim); }
+
+/* ---- Command palette (Cmd/Ctrl+K) ---------------------------------------- */
+
+.cmdk-hint {
+  font-size: 0.65rem;
+  font-family: inherit;
+  color: var(--text-faint);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  margin-left: auto;
+}
+
+.cmdk-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(4, 7, 13, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+}
+
+.cmdk-box {
+  width: min(560px, 92vw);
+  max-height: 60vh;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: cmdk-in 0.15s var(--ease) both;
+}
+
+@keyframes cmdk-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cmdk-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-faint);
+}
+
+.cmdk-input-row input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-md);
+}
+
+.cmdk-input-row kbd {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15rem 0.4rem;
+}
+
+.cmdk-list {
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.cmdk-item.active { background: var(--bg-elev-2); }
+.cmdk-icon { font-size: 1.1rem; }
+
+.cmdk-empty {
+  padding: 1rem;
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}
+
+@media (max-width: 700px) {
+  .cmdk-hint { display: none; }
+}
 
