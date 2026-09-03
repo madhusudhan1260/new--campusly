@@ -148,6 +148,72 @@ class Bookmark(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "opportunity_id", name="uq_bookmark_user_opportunity"),)
 
 
+class Profile(db.Model):
+    """Skills + resume used to score internship matches.
+
+    There's one shared account now (see auth.py), so there's one profile --
+    skills and resume aren't per-visitor, they're the workspace's own.
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False)
+    skills = db.Column(db.Text, nullable=True)  # comma-separated free text tags
+    resume_text = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = db.relationship("User", foreign_keys=[user_id])
+
+    def skill_list(self) -> list[str]:
+        if not self.skills:
+            return []
+        return [s.strip() for s in self.skills.split(",") if s.strip()]
+
+
+APPLICATION_STATUSES = ("Applied", "Shortlisted", "Interview", "Selected", "Rejected")
+
+
+class Application(db.Model):
+    """Tracks progress through the hiring pipeline for one internship."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey("opportunity.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="Applied")
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (db.UniqueConstraint("opportunity_id", "user_id", name="uq_application_opp_user"),)
+
+    opportunity = db.relationship("Opportunity", foreign_keys=[opportunity_id])
+
+
+class Team(db.Model):
+    """A hackathon team roster.
+
+    With one shared account there's no real invite/accept flow between
+    distinct people, so this is a lightweight roster instead: whoever's
+    forming the team lists teammate names/roles as plain text. Simple, but
+    honest about what's actually possible without individual accounts.
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey("opportunity.id"), nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    looking_for = db.Column(db.String(300), nullable=True)  # e.g. "1 designer, 1 backend dev"
+    created_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    opportunity = db.relationship("Opportunity", foreign_keys=[opportunity_id])
+    members = db.relationship("TeamMember", backref="team", order_by="TeamMember.id", cascade="all, delete-orphan")
+
+
+class TeamMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey("team.id"), nullable=False, index=True)
+    name = db.Column(db.String(120), nullable=False)
+    role = db.Column(db.String(80), nullable=True)
+
+
 # ---------------------------------------------------------------------------
 # CampusCare -- Health Center, SOS, Wellness, Blood Network, Appointments.
 # ---------------------------------------------------------------------------
@@ -179,6 +245,23 @@ class HealthAppointment(db.Model):
 
     user = db.relationship("User", foreign_keys=[user_id])
     doctor = db.relationship("Doctor", foreign_keys=[doctor_id])
+
+
+class MedicineReminder(db.Model):
+    """A recurring reminder to take a medicine -- a plain reminder, never a
+    prescription or dosing recommendation. The browser checks these while
+    the tab is open and fires a Notification; there's no server-side push,
+    so a reminder only fires while Campusly is open somewhere."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    medicine_name = db.Column(db.String(120), nullable=False)
+    dosage = db.Column(db.String(80), nullable=True)
+    time_of_day = db.Column(db.String(5), nullable=False)  # "HH:MM", 24h
+    active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    user = db.relationship("User", foreign_keys=[user_id])
 
 
 class SOSRequest(db.Model):

@@ -84,6 +84,9 @@
             <p class="loc"><svg class="icon" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> {{ item.location }}</p>
             <p class="cat">{{ item.category }}</p>
             {% if item.description %}<p class="desc">{{ item.description }}</p>{% endif %}
+            {% if similar_items.get(item.id) %}
+              <p class="similar-hint">⚠ Possibly related to: {{ similar_items[item.id] | map(attribute='name') | join(', ') }}</p>
+            {% endif %}
 
             {% if item.status == 'Available' %}
               {% if item.id in my_claimed_item_ids %}

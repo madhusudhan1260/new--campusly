@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Notifications — Campusly{% endblock %}
+{% block content %}
+  <h1 class="page-title">Notifications</h1>
+  <p class="page-sub">What needs a look right now -- pulled live from every module, not a stored feed.</p>
+
+  {% if items %}
+    <div class="activity-list">
+      {% for n in items %}
+        <a class="activity-item notif-item" href="{{ n.url }}">
+          <span class="activity-icon">{{ n.icon }}</span>
+          <div class="activity-body">
+            <p class="activity-detail">{{ n.text }}</p>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="empty">Nothing needs your attention right now.</p>
+  {% endif %}
+{% endblock %}

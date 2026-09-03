@@ -281,15 +281,63 @@ h1, h2, h3 { letter-spacing: var(--tracking-tight); }
   to { transform: scaleX(1); }
 }
 
-.user-box {
+.top-actions {
   display: flex;
   align-items: center;
   gap: 0.7rem;
 }
 
-.user-name {
-  font-size: var(--fs-sm);
+.nav-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  color: var(--text-faint);
+}
+
+.nav-search input {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: var(--fs-xs);
+  width: 140px;
+  outline: none;
+}
+
+.nav-search input::placeholder { color: var(--text-faint); }
+
+.nav-icon-link {
+  position: relative;
+  display: inline-flex;
   color: var(--text-dim);
+  padding: 0.3rem;
+}
+
+.nav-icon-link:hover { color: var(--text); }
+.nav-icon-link svg { width: 1.15em; height: 1.15em; }
+
+.nav-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--hot);
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  min-width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+@media (max-width: 700px) {
+  .nav-search { display: none; }
 }
 
 .role-badge {
@@ -2025,4 +2073,128 @@ tbody tr:last-child td { border-bottom: none; }
 .main-nav a.nav-intern.active { color: var(--mod-intern); --nav-accent: var(--mod-intern); }
 .main-nav a.nav-health.active { color: var(--mod-health); --nav-accent: var(--mod-health); }
 .main-nav a.nav-lost.active { color: var(--mod-lost); --nav-accent: var(--mod-lost); }
+
+/* ---- Application status pipeline --------------------------------------- */
+
+.app-status-badge {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-label);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  color: var(--text-dim);
+}
+.app-status-badge.status-applied { background: var(--cool-soft); color: var(--cool); }
+.app-status-badge.status-shortlisted { background: var(--mod-intern-soft); color: var(--mod-intern); }
+.app-status-badge.status-interview { background: var(--warn-soft); color: var(--warn); }
+.app-status-badge.status-selected { background: var(--good-soft); color: var(--good); }
+.app-status-badge.status-rejected { background: var(--hot-soft); color: var(--hot); }
+
+.application-tracker {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.application-tracker select {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.5rem;
+}
+
+/* ---- Match badge (internship skill match) ------------------------------- */
+
+.match-badge {
+  font-weight: 700;
+  font-size: var(--fs-2xs);
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--mod-intern-soft);
+  color: var(--mod-intern);
+}
+
+/* ---- Notifications ------------------------------------------------------- */
+
+.notif-item {
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.notif-item:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+
+/* ---- Teams (hackathons) -------------------------------------------------- */
+
+.team-toggle-btn { margin-top: 0.4rem; }
+
+.teams-panel {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.team-card {
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.7rem;
+}
+
+.team-card h4 { margin: 0 0 0.2rem; font-size: var(--fs-sm); }
+.team-card .looking { font-size: var(--fs-2xs); color: var(--mod-hack); margin: 0.1rem 0; }
+.team-card ul { margin: 0.3rem 0 0; padding-left: 1.1rem; font-size: var(--fs-xs); color: var(--text-dim); }
+
+.team-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.team-form input, .team-form textarea {
+  width: 100%;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  padding: 0.4rem 0.55rem;
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+
+/* ---- Similar item hints (Lost & Found) ----------------------------------- */
+
+.similar-hint {
+  font-size: var(--fs-2xs);
+  color: var(--warn);
+  margin: 0.3rem 0 0;
+}
+
+/* ---- Medicine reminders (Health) ----------------------------------------- */
+
+.reminder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.reminder-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+}
+.reminder-row.inactive { opacity: 0.5; }
+.reminder-time { font-weight: 700; font-variant-numeric: tabular-nums; }
+.reminder-info { flex: 1; font-size: var(--fs-xs); color: var(--text-dim); }
 

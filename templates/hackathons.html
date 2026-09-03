@@ -27,7 +27,7 @@
   <section class="board op-board">
     {% if opportunities %}
       {% for op in opportunities %}
-        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0) }}
+        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0, teams=teams_by_opportunity.get(op.id, [])) }}
       {% endfor %}
     {% else %}
       <p class="empty">No hackathons match these filters.</p>

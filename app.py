@@ -25,10 +25,12 @@ from auth import current_user, hash_password, login_required, role_required
 from extensions import db
 from live_feeds import fetch_live_hackathons, fetch_live_internships
 from models import (
+    APPLICATION_STATUSES,
     BLOOD_GROUPS,
     MOOD_EMOJI,
     MOODS,
     SOS_TYPES,
+    Application,
     BloodDonor,
     BloodPing,
     BloodRequest,
@@ -39,10 +41,14 @@ from models import (
     Doctor,
     HealthAppointment,
     Item,
+    MedicineReminder,
     MoodEntry,
     Opportunity,
+    Profile,
     SOSRequest,
     SupportMessage,
+    Team,
+    TeamMember,
     User,
 )
 
@@ -92,7 +98,11 @@ csrf = CSRFProtect(app)
 
 @app.context_processor
 def inject_user():
-    return {"logged_in_user": current_user(), "today": date.today()}
+    return {
+        "logged_in_user": current_user(),
+        "today": date.today(),
+        "notifications_count": len(_notification_items()),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -265,6 +275,130 @@ def assistant_ask():
 
 
 # ---------------------------------------------------------------------------
+# Global search -- across opportunities, lost & found items, and doctors.
+# ---------------------------------------------------------------------------
+
+@app.route("/search")
+@login_required
+def search():
+    query_text = (request.args.get("q") or "").strip()
+    hackathons_r, internships_r, items_r, doctors_r = [], [], [], []
+
+    if query_text:
+        pattern = f"%{query_text}%"
+        for op in (
+            Opportunity.query.filter(db.or_(Opportunity.title.ilike(pattern), Opportunity.organizer.ilike(pattern)))
+            .limit(30)
+            .all()
+        ):
+            (hackathons_r if op.kind == "hackathon" else internships_r).append(op)
+        items_r = Item.query.filter(db.or_(Item.name.ilike(pattern), Item.location.ilike(pattern))).limit(20).all()
+        doctors_r = Doctor.query.filter(Doctor.name.ilike(pattern)).limit(20).all()
+
+    return render_template(
+        "search.html",
+        query=query_text,
+        hackathons=hackathons_r,
+        internships=internships_r,
+        items=items_r,
+        doctors=doctors_r,
+        total=len(hackathons_r) + len(internships_r) + len(items_r) + len(doctors_r),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Notifications -- a "needs attention" digest built from real pending state
+# (claims awaiting review, blood pings, today's appointments, active SOS,
+# closing-soon listings). No push delivery, no per-person targeting -- just
+# a page that answers "what should I look at right now."
+# ---------------------------------------------------------------------------
+
+def _notification_items() -> list[dict]:
+    today = date.today()
+    items = []
+
+    claimed_items = [i for i in Item.query.filter_by(status="Available").all() if i.claims]
+    for i in claimed_items:
+        items.append(
+            {
+                "icon": "🔎",
+                "text": f'"{i.name}" has {len(i.claims)} claim(s) awaiting review.',
+                "url": url_for("lost_found"),
+            }
+        )
+
+    pending_pings = BloodPing.query.filter_by(status="pending").count()
+    if pending_pings:
+        items.append(
+            {"icon": "🩸", "text": f"{pending_pings} blood donor ping(s) awaiting a response.", "url": url_for("health")}
+        )
+
+    todays_appointments = HealthAppointment.query.filter_by(status="confirmed", appointment_date=today).count()
+    if todays_appointments:
+        items.append({"icon": "🏥", "text": f"{todays_appointments} appointment(s) today.", "url": url_for("health")})
+
+    active_sos = SOSRequest.query.filter_by(status="active").count()
+    if active_sos:
+        items.append({"icon": "🚨", "text": f"{active_sos} active SOS alert(s) need attention.", "url": url_for("health")})
+
+    pending_counselor = CounselorRequest.query.filter_by(status="pending").count()
+    if pending_counselor:
+        items.append(
+            {"icon": "🧠", "text": f"{pending_counselor} counselor request(s) pending.", "url": url_for("health")}
+        )
+
+    week_out = today + timedelta(days=7)
+    closing_soon = Opportunity.query.filter(
+        Opportunity.status == "open",
+        Opportunity.deadline.isnot(None),
+        Opportunity.deadline >= today,
+        Opportunity.deadline <= week_out,
+    ).count()
+    if closing_soon:
+        items.append(
+            {
+                "icon": "⏳",
+                "text": f"{closing_soon} hackathon/internship listing(s) closing within a week.",
+                "url": url_for("hackathons"),
+            }
+        )
+
+    return items
+
+
+@app.route("/notifications")
+@login_required
+def notifications():
+    return render_template("notifications.html", items=_notification_items())
+
+
+# ---------------------------------------------------------------------------
+# Admin analytics -- aggregate counts across every module.
+# ---------------------------------------------------------------------------
+
+@app.route("/admin/analytics")
+@login_required
+def admin_analytics():
+    stats = {
+        "hackathons_posted": Opportunity.query.filter_by(kind="hackathon").count(),
+        "internships_posted": Opportunity.query.filter_by(kind="internship").count(),
+        "items_reported": Item.query.count(),
+        "items_returned": Item.query.filter_by(status="Returned").count(),
+        "claims_submitted": Claim.query.count(),
+        "appointments_booked": HealthAppointment.query.count(),
+        "sos_total": SOSRequest.query.count(),
+        "sos_resolved": SOSRequest.query.filter_by(status="resolved").count(),
+        "blood_requests": BloodRequest.query.count(),
+        "blood_requests_fulfilled": BloodRequest.query.filter_by(status="fulfilled").count(),
+        "mood_checkins": MoodEntry.query.count(),
+        "applications_tracked": Application.query.count(),
+        "teams_formed": Team.query.count(),
+        "users_total": User.query.count(),
+    }
+    return render_template("admin_analytics.html", stats=stats)
+
+
+# ---------------------------------------------------------------------------
 # Shared Gemini helpers -- every AI feature in this app (Lost & Found photo
 # analysis, the two Health features) goes through here, so the retry-on-
 # overload behaviour and JSON-extraction only need to be right once.
@@ -383,6 +517,27 @@ def analyze_image(image_bytes: bytes, mime_type: str) -> dict:
     return {"ok": True, "name": parsed.get("name", ""), "category": parsed["category"], "description": parsed.get("description", "")}
 
 
+def _similar_items(items: list[Item]) -> dict[int, list[Item]]:
+    """Same-category items with overlapping words in name/description -- plain
+    text overlap, not image or AI matching. Flags possible duplicate reports
+    (e.g. two people reporting the same lost phone) without pretending this
+    is smarter than it is."""
+    available = [i for i in items if i.status == "Available"]
+    result: dict[int, list[Item]] = {}
+    for a in available:
+        a_words = {w for w in (a.name + " " + (a.description or "")).lower().split() if len(w) > 3}
+        matches = []
+        for b in available:
+            if a.id == b.id or a.category != b.category:
+                continue
+            b_words = {w for w in (b.name + " " + (b.description or "")).lower().split() if len(w) > 3}
+            if a_words & b_words:
+                matches.append(b)
+        if matches:
+            result[a.id] = matches[:3]
+    return result
+
+
 @app.route("/lost-found")
 @login_required
 def lost_found():
@@ -420,6 +575,7 @@ def lost_found():
         claim_counts=claim_counts,
         my_claimed_item_ids=my_claimed_item_ids,
         manageable_item_ids=manageable_item_ids,
+        similar_items=_similar_items(items),
     )
 
 
@@ -654,10 +810,40 @@ def _opportunity_stats(kind: str, online_modes: tuple[str, ...]) -> dict:
     return stats
 
 
+def _skill_match_scores(opportunities: list[Opportunity]) -> dict[int, int]:
+    """Real match % from overlap between the shared profile's skills and each
+    opportunity's categories. A skill tag matches a category if it appears
+    in (or contains) that category's key or display label -- e.g. a skill
+    of "python" matches the "Web" category label loosely, "ai" matches
+    "AI / ML". Nothing here is randomised; an opportunity with no overlap
+    simply gets no score and no badge."""
+    profile = Profile.query.filter_by(user_id=current_user().id).first()
+    if not profile or not profile.skill_list():
+        return {}
+    skill_tokens = {s.lower() for s in profile.skill_list()}
+    scores = {}
+    for op in opportunities:
+        op_cats = op.category_list()
+        if not op_cats:
+            continue
+        matched = 0
+        for cat_key in op_cats:
+            label = CATEGORIES.get(cat_key, cat_key).lower()
+            if any(tok in label or tok == cat_key for tok in skill_tokens):
+                matched += 1
+        if matched:
+            scores[op.id] = round(100 * matched / len(op_cats))
+    return scores
+
+
 @app.route("/hackathons")
 @login_required
 def hackathons():
     opportunities, filters = _opportunity_list("hackathon")
+    teams_by_opportunity: dict[int, list] = {}
+    if opportunities:
+        for team in Team.query.filter(Team.opportunity_id.in_([op.id for op in opportunities])).all():
+            teams_by_opportunity.setdefault(team.opportunity_id, []).append(team)
     return render_template(
         "hackathons.html",
         opportunities=opportunities,
@@ -668,6 +854,7 @@ def hackathons():
         bookmarked_ids=_bookmarked_ids(),
         stats=_opportunity_stats("hackathon", ("Online",)),
         live_hackathons=fetch_live_hackathons(),
+        teams_by_opportunity=teams_by_opportunity,
     )
 
 
@@ -675,6 +862,7 @@ def hackathons():
 @login_required
 def internships():
     opportunities, filters = _opportunity_list("internship")
+    my_applications = {a.opportunity_id: a.status for a in Application.query.filter_by(user_id=current_user().id).all()}
     return render_template(
         "internships.html",
         opportunities=opportunities,
@@ -685,6 +873,9 @@ def internships():
         bookmarked_ids=_bookmarked_ids(),
         stats=_opportunity_stats("internship", ("Remote",)),
         live_internships=fetch_live_internships(),
+        match_scores=_skill_match_scores(opportunities),
+        my_applications=my_applications,
+        application_statuses=APPLICATION_STATUSES,
     )
 
 
@@ -793,6 +984,155 @@ def toggle_bookmark(opportunity_id: int):
     db.session.add(Bookmark(user_id=current_user().id, opportunity_id=opportunity_id))
     db.session.commit()
     return jsonify({"ok": True, "bookmarked": True})
+
+
+# ---------------------------------------------------------------------------
+# Internship application pipeline
+# ---------------------------------------------------------------------------
+
+@app.post("/opportunities/<int:opportunity_id>/application-status")
+@login_required
+def set_application_status(opportunity_id: int):
+    opportunity = db.session.get(Opportunity, opportunity_id)
+    if opportunity is None or opportunity.kind != "internship":
+        return jsonify({"ok": False, "error": "Not an internship."}), 404
+
+    status = request.form.get("status")
+    if status not in APPLICATION_STATUSES:
+        return jsonify({"ok": False, "error": "Invalid status."}), 400
+
+    user = current_user()
+    application = Application.query.filter_by(opportunity_id=opportunity_id, user_id=user.id).first()
+    if application is None:
+        application = Application(opportunity_id=opportunity_id, user_id=user.id, status=status)
+        db.session.add(application)
+    else:
+        application.status = status
+    db.session.commit()
+    return jsonify({"ok": True, "status": status})
+
+
+@app.post("/opportunities/<int:opportunity_id>/application-status/clear")
+@login_required
+def clear_application_status(opportunity_id: int):
+    Application.query.filter_by(opportunity_id=opportunity_id, user_id=current_user().id).delete()
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Hackathon team formation -- a lightweight roster, not an invite/accept
+# flow. There's one shared account (see auth.py), so there's no second
+# distinct person to send an invite to; this just lets whoever's forming a
+# team list it and what it still needs.
+# ---------------------------------------------------------------------------
+
+@app.post("/hackathons/<int:opportunity_id>/teams")
+@login_required
+def create_team(opportunity_id: int):
+    opportunity = db.session.get(Opportunity, opportunity_id)
+    if opportunity is None or opportunity.kind != "hackathon":
+        return jsonify({"ok": False, "error": "Not a hackathon."}), 404
+
+    name = (request.form.get("name") or "").strip()[:120]
+    if not name:
+        return jsonify({"ok": False, "error": "Give the team a name."}), 400
+    looking_for = (request.form.get("looking_for") or "").strip()[:300]
+
+    team = Team(opportunity_id=opportunity_id, name=name, looking_for=looking_for or None, created_by_id=current_user().id)
+    db.session.add(team)
+    db.session.flush()
+
+    member_lines = [line.strip() for line in (request.form.get("members") or "").splitlines() if line.strip()]
+    for line in member_lines[:20]:
+        if "-" in line:
+            member_name, role = line.split("-", 1)
+        else:
+            member_name, role = line, ""
+        db.session.add(TeamMember(team_id=team.id, name=member_name.strip()[:120], role=role.strip()[:80] or None))
+
+    db.session.commit()
+    return jsonify({"ok": True, "team_id": team.id})
+
+
+@app.post("/hackathons/teams/<int:team_id>/delete")
+@login_required
+def delete_team(team_id: int):
+    team = db.session.get(Team, team_id)
+    if team is None:
+        return jsonify({"ok": False, "error": "Already gone."}), 404
+    db.session.delete(team)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Shared profile -- skills + resume, used for the internship match score
+# and AI resume feedback.
+# ---------------------------------------------------------------------------
+
+def _get_or_create_profile() -> Profile:
+    user = current_user()
+    profile = Profile.query.filter_by(user_id=user.id).first()
+    if profile is None:
+        profile = Profile(user_id=user.id)
+        db.session.add(profile)
+        db.session.commit()
+    return profile
+
+
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def profile():
+    prof = _get_or_create_profile()
+    if request.method == "POST":
+        prof.skills = (request.form.get("skills") or "").strip()[:500]
+        prof.resume_text = (request.form.get("resume_text") or "").strip()[:8000]
+        db.session.commit()
+        flash("Profile saved.", "success")
+        return redirect(url_for("profile"))
+
+    my_applications = (
+        Application.query.filter_by(user_id=current_user().id).join(Opportunity).order_by(Application.updated_at.desc()).all()
+    )
+    return render_template(
+        "profile.html",
+        profile=prof,
+        ai_ready=bool(GEMINI_API_KEY),
+        my_applications=my_applications,
+        internships=Opportunity.query.filter_by(kind="internship", status="open").order_by(Opportunity.title.asc()).all(),
+    )
+
+
+@app.post("/profile/resume-feedback")
+@login_required
+def resume_feedback():
+    prof = _get_or_create_profile()
+    if not prof.resume_text:
+        return jsonify({"ok": False, "error": "Paste your resume text first."}), 400
+
+    target_id = request.form.get("opportunity_id", type=int)
+    target = db.session.get(Opportunity, target_id) if target_id else None
+
+    prompt = (
+        "You are a concise career advisor reviewing a student's resume (plain text, may be messy). "
+        "Give: (1) 2-3 sentences of overall feedback, (2) a short bullet list of specific missing skills "
+        "or sections, (3) one concrete improvement suggestion. Keep the whole reply under 150 words, "
+        "plain text, no markdown headers.\n\n"
+    )
+    if target is not None:
+        prompt += f'The student is targeting this internship: "{target.title}" at {target.organizer or "the organization"}. '
+        if target.category_labels():
+            prompt += f"Its listed categories: {', '.join(target.category_labels())}. "
+        prompt += "Weigh your feedback toward what this specific role needs.\n\n"
+
+    prompt += "Resume:\n" + prof.resume_text[:6000]
+
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    text, error = _gemini_text(payload)
+    if error:
+        return jsonify({"ok": False, "error": error}), 502
+    return jsonify({"ok": True, "feedback": text.strip()})
 
 
 # ---------------------------------------------------------------------------
@@ -947,10 +1287,15 @@ def health():
         + SOSRequest.query.filter_by(status="resolved").count()
     )
 
+    medicine_reminders = (
+        MedicineReminder.query.filter_by(user_id=user.id).order_by(MedicineReminder.time_of_day.asc()).all()
+    )
+
     return render_template(
         "health.html",
         ai_ready=bool(GEMINI_API_KEY),
         doctors=doctors,
+        medicine_reminders=medicine_reminders,
         todays_queue=todays_queue,
         active_sos=active_sos,
         my_sos_active=my_sos_active,
@@ -1002,6 +1347,69 @@ def toggle_doctor(doctor_id: int):
     doctor.available = not doctor.available
     db.session.commit()
     return jsonify({"ok": True, "available": doctor.available})
+
+
+# --- Medicine reminders -------------------------------------------------------
+# Plain reminders only -- never a dosing recommendation. Firing them is a
+# client-side setInterval check against time_of_day while the tab is open
+# (see health.js); there's no server push, so a reminder only fires while
+# Campusly is open somewhere.
+
+@app.post("/health/medicine")
+@login_required
+def add_medicine_reminder():
+    name = (request.form.get("medicine_name") or "").strip()[:120]
+    dosage = (request.form.get("dosage") or "").strip()[:80]
+    time_of_day = (request.form.get("time_of_day") or "").strip()
+
+    if not name:
+        return jsonify({"ok": False, "error": "Name the medicine."}), 400
+    try:
+        hh, mm = time_of_day.split(":")
+        if not (0 <= int(hh) <= 23 and 0 <= int(mm) <= 59):
+            raise ValueError
+    except (ValueError, AttributeError):
+        return jsonify({"ok": False, "error": "Choose a valid time."}), 400
+
+    reminder = MedicineReminder(
+        user_id=current_user().id, medicine_name=name, dosage=dosage or None, time_of_day=time_of_day
+    )
+    db.session.add(reminder)
+    db.session.commit()
+    return jsonify(
+        {
+            "ok": True,
+            "reminder": {
+                "id": reminder.id,
+                "medicine_name": reminder.medicine_name,
+                "dosage": reminder.dosage,
+                "time_of_day": reminder.time_of_day,
+                "active": reminder.active,
+            },
+        }
+    )
+
+
+@app.post("/health/medicine/<int:reminder_id>/toggle")
+@login_required
+def toggle_medicine_reminder(reminder_id: int):
+    reminder = db.session.get(MedicineReminder, reminder_id)
+    if reminder is None or reminder.user_id != current_user().id:
+        return jsonify({"ok": False, "error": "Not found."}), 404
+    reminder.active = not reminder.active
+    db.session.commit()
+    return jsonify({"ok": True, "active": reminder.active})
+
+
+@app.post("/health/medicine/<int:reminder_id>/delete")
+@login_required
+def delete_medicine_reminder(reminder_id: int):
+    reminder = db.session.get(MedicineReminder, reminder_id)
+    if reminder is None or reminder.user_id != current_user().id:
+        return jsonify({"ok": False, "error": "Not found."}), 404
+    db.session.delete(reminder)
+    db.session.commit()
+    return jsonify({"ok": True})
 
 
 # --- Emergency SOS -----------------------------------------------------------

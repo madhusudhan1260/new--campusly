@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "_opportunity_macros.html" import opportunity_card with context %}
+{% block title %}Search — Campusly{% endblock %}
+{% block content %}
+  <h1 class="page-title">Search</h1>
+  {% if query %}
+    <p class="page-sub">{{ total }} result{{ '' if total == 1 else 's' }} for "{{ query }}"</p>
+  {% else %}
+    <p class="page-sub">Search across hackathons, internships, lost &amp; found items and doctors.</p>
+  {% endif %}
+
+  <form class="toolbar" method="get" action="{{ url_for('search') }}">
+    <div class="search-box">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      <input type="text" name="q" placeholder="Search everything…" value="{{ query }}" autofocus>
+    </div>
+    <button class="btn ghost" type="submit">Search</button>
+  </form>
+
+  {% if query and total == 0 %}
+    <p class="empty">No matches for "{{ query }}".</p>
+  {% endif %}
+
+  {% if hackathons %}
+    <h2 class="section-title">🚀 Hackathons</h2>
+    <section class="board op-board">
+      {% for op in hackathons %}{{ opportunity_card(op, false, false, today, loop.index0) }}{% endfor %}
+    </section>
+  {% endif %}
+
+  {% if internships %}
+    <h2 class="section-title">💼 Internships</h2>
+    <section class="board op-board">
+      {% for op in internships %}{{ opportunity_card(op, false, false, today, loop.index0) }}{% endfor %}
+    </section>
+  {% endif %}
+
+  {% if items %}
+    <h2 class="section-title">🔎 Lost &amp; Found</h2>
+    <section class="board">
+      {% for item in items %}
+        <a class="card" href="{{ url_for('lost_found') }}">
+          <div class="thumb">
+            {% if item.image_filename %}
+              <img src="{{ url_for('static', filename='uploads/' + item.image_filename) }}" alt="{{ item.name }}">
+            {% else %}
+              <span class="thumb-placeholder">{{ item.category[:1] }}</span>
+            {% endif %}
+            <span class="tag {{ item.status }}">{{ item.status }}</span>
+          </div>
+          <div class="body">
+            <h3>{{ item.name }}</h3>
+            <p class="loc">{{ item.location }}</p>
+          </div>
+        </a>
+      {% endfor %}
+    </section>
+  {% endif %}
+
+  {% if doctors %}
+    <h2 class="section-title">🏥 Doctors</h2>
+    <div class="recommend-grid">
+      {% for d in doctors %}
+        <a class="recommend-card" href="{{ url_for('health') }}">
+          <span class="recommend-icon">🏥</span>
+          <div class="recommend-body">
+            <div class="recommend-title">{{ d.name }}</div>
+            <div class="recommend-reason">{{ d.specialty or 'General' }} -- {{ 'Available' if d.available else 'Unavailable' }}</div>
+          </div>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='opportunities.js') }}"></script>
+{% endblock %}

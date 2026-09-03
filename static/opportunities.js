@@ -60,4 +60,72 @@
       });
     });
   });
+
+  // ------------------------------------------------------ Application status
+
+  document.querySelectorAll(".app-status-select").forEach(function (select) {
+    select.addEventListener("change", function () {
+      var opId = select.getAttribute("data-id");
+      var url = select.value
+        ? "/opportunities/" + opId + "/application-status"
+        : "/opportunities/" + opId + "/application-status/clear";
+      var formData = new FormData();
+      if (select.value) formData.append("status", select.value);
+
+      fetch(url, { method: "POST", headers: { "X-CSRFToken": window.CSRF_TOKEN }, body: formData })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          if (result.ok && result.data.ok) {
+            window.location.reload();
+          } else {
+            window.alert((result.data && result.data.error) || "Could not update status.");
+          }
+        });
+    });
+  });
+
+  // -------------------------------------------------------------------- Teams
+
+  document.querySelectorAll(".team-toggle-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var panel = document.getElementById("teams-" + button.getAttribute("data-id"));
+      if (panel) panel.hidden = !panel.hidden;
+    });
+  });
+
+  document.querySelectorAll(".team-form").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var opId = form.getAttribute("data-id");
+      var msg = form.querySelector(".team-msg");
+      var submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+
+      var formData = new FormData(form);
+      fetch("/hackathons/" + opId + "/teams", { method: "POST", headers: { "X-CSRFToken": window.CSRF_TOKEN }, body: formData })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          submitBtn.disabled = false;
+          if (result.ok && result.data.ok) {
+            window.location.reload();
+          } else {
+            msg.textContent = (result.data && result.data.error) || "Could not create this team.";
+            msg.className = "msg err";
+          }
+        })
+        .catch(function () {
+          submitBtn.disabled = false;
+          msg.textContent = "Network error. Please try again.";
+          msg.className = "msg err";
+        });
+    });
+  });
 })();

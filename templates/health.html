@@ -208,6 +208,35 @@
     {% endif %}
   </section>
 
+  <!-- ============================================================ Medicine reminders -->
+  <section class="report-card" id="medicine-reminders">
+    <h2>Medicine reminders</h2>
+    <p class="hint">Plain reminders, not a prescription. These only fire while a Campusly tab is open somewhere on this device.</p>
+
+    {% if medicine_reminders %}
+      <div class="reminder-list">
+        {% for r in medicine_reminders %}
+          <div class="reminder-row {{ '' if r.active else 'inactive' }}" data-id="{{ r.id }}">
+            <span class="reminder-time">{{ r.time_of_day }}</span>
+            <span class="reminder-info">{{ r.medicine_name }}{% if r.dosage %} &middot; {{ r.dosage }}{% endif %}</span>
+            <button class="btn ghost small reminder-toggle-btn" type="button" data-id="{{ r.id }}">{{ 'Pause' if r.active else 'Resume' }}</button>
+            <button class="btn ghost small reminder-delete-btn" type="button" data-id="{{ r.id }}">Delete</button>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="empty">No reminders set yet.</p>
+    {% endif %}
+
+    <form id="reminder-form" class="row row-tight panel-spaced">
+      <input type="text" id="r-name" name="medicine_name" placeholder="Medicine name" maxlength="120" required>
+      <input type="text" id="r-dosage" name="dosage" placeholder="Dosage (optional)" maxlength="80">
+      <input type="time" id="r-time" name="time_of_day" required>
+      <button class="btn primary small" type="submit">Add reminder</button>
+      <span id="reminder-msg" class="msg"></span>
+    </form>
+  </section>
+
   <!-- ============================================================ Mental Wellness -->
   <section class="report-card">
     <h2>How are you feeling today?</h2>

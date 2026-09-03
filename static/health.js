@@ -522,4 +522,82 @@
         });
     });
   });
+
+  // ---------------------------------------------------------- Medicine reminders
+
+  var reminderForm = document.getElementById("reminder-form");
+  if (reminderForm) {
+    reminderForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var msg = document.getElementById("reminder-msg");
+      postForm("/health/medicine", {
+        medicine_name: document.getElementById("r-name").value,
+        dosage: document.getElementById("r-dosage").value,
+        time_of_day: document.getElementById("r-time").value,
+      }).then(function (result) {
+        if (result.ok && result.data.ok) {
+          window.location.reload();
+        } else {
+          setMsg(msg, (result.data && result.data.error) || "Could not add that reminder.", false);
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll(".reminder-toggle-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      btn.disabled = true;
+      postForm("/health/medicine/" + btn.getAttribute("data-id") + "/toggle").then(function (result) {
+        if (result.ok && result.data.ok) {
+          window.location.reload();
+        } else {
+          btn.disabled = false;
+        }
+      });
+    });
+  });
+
+  document.querySelectorAll(".reminder-delete-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (!window.confirm("Delete this reminder?")) return;
+      btn.disabled = true;
+      postForm("/health/medicine/" + btn.getAttribute("data-id") + "/delete").then(function (result) {
+        if (result.ok && result.data.ok) {
+          var row = btn.closest(".reminder-row");
+          if (row) row.remove();
+        } else {
+          btn.disabled = false;
+        }
+      });
+    });
+  });
+
+  // Fires a browser Notification when the current time matches an active
+  // reminder's time_of_day. Only works while this tab is open -- there's no
+  // server push, so this is a best-effort in-tab alarm, not a guarantee.
+  var reminderRows = document.querySelectorAll(".reminder-row:not(.inactive)");
+  if (reminderRows.length && "Notification" in window) {
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    var firedToday = {};
+    setInterval(function () {
+      if (Notification.permission !== "granted") return;
+      var now = new Date();
+      var hh = String(now.getHours()).padStart(2, "0");
+      var mm = String(now.getMinutes()).padStart(2, "0");
+      var current = hh + ":" + mm;
+      var dayKey = now.toDateString();
+
+      reminderRows.forEach(function (row) {
+        var timeEl = row.querySelector(".reminder-time");
+        var infoEl = row.querySelector(".reminder-info");
+        if (!timeEl || timeEl.textContent.trim() !== current) return;
+        var key = row.getAttribute("data-id") + ":" + dayKey + ":" + current;
+        if (firedToday[key]) return;
+        firedToday[key] = true;
+        new Notification("Medicine reminder", { body: infoEl ? infoEl.textContent.trim() : "Time for your medicine." });
+      });
+    }, 30000);
+  }
 })();

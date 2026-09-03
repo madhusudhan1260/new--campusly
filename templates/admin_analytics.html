@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Analytics — Campusly{% endblock %}
+{% block content %}
+  <h1 class="page-title">Analytics</h1>
+  <p class="page-sub">Real counts pulled straight from the database.</p>
+
+  <h2 class="section-title">Opportunities</h2>
+  <div class="stats-band">
+    <div class="stat"><div class="value">{{ stats.hackathons_posted }}</div><div class="label">🚀 Hackathons Posted</div></div>
+    <div class="stat"><div class="value">{{ stats.internships_posted }}</div><div class="label">💼 Internships Posted</div></div>
+    <div class="stat"><div class="value">{{ stats.teams_formed }}</div><div class="label">👥 Teams Formed</div></div>
+    <div class="stat"><div class="value">{{ stats.applications_tracked }}</div><div class="label">📋 Applications Tracked</div></div>
+  </div>
+
+  <h2 class="section-title">Health</h2>
+  <div class="stats-band">
+    <div class="stat"><div class="value">{{ stats.appointments_booked }}</div><div class="label">🏥 Appointments Booked</div></div>
+    <div class="stat"><div class="value">{{ stats.sos_resolved }}/{{ stats.sos_total }}</div><div class="label">🚨 SOS Resolved</div></div>
+    <div class="stat"><div class="value">{{ stats.blood_requests_fulfilled }}/{{ stats.blood_requests }}</div><div class="label">🩸 Blood Requests Fulfilled</div></div>
+    <div class="stat"><div class="value">{{ stats.mood_checkins }}</div><div class="label">🧠 Mood Check-ins</div></div>
+  </div>
+
+  <h2 class="section-title">Lost &amp; Found</h2>
+  <div class="stats-band">
+    <div class="stat"><div class="value">{{ stats.items_reported }}</div><div class="label">🔎 Items Reported</div></div>
+    <div class="stat"><div class="value">{{ stats.items_returned }}</div><div class="label">✅ Items Returned</div></div>
+    <div class="stat"><div class="value">{{ stats.claims_submitted }}</div><div class="label">📝 Claims Submitted</div></div>
+    <div class="stat"><div class="value">{{ stats.users_total }}</div><div class="label">👤 Accounts On Record</div></div>
+  </div>
+{% endblock %}
