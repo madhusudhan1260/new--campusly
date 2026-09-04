@@ -16,6 +16,10 @@ services:
         sync: false
       - key: SUPER_ADMIN_PASSWORD
         sync: false
+      - key: DOSS_EMAIL
+        sync: false
+      - key: DOSS_PASSWORD
+        sync: false
       - key: HEALTH_CENTER_NAME
         value: Campus Health Center
       - key: HEALTH_CENTER_PHONE
