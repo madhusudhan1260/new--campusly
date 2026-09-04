@@ -44,6 +44,7 @@ from models import (
     MedicineReminder,
     MoodEntry,
     Opportunity,
+    PageView,
     Profile,
     SOSRequest,
     Submission,
@@ -95,6 +96,15 @@ app.config["MAX_CONTENT_LENGTH"] = 6 * 1024 * 1024  # 6 MB
 
 db.init_app(app)
 csrf = CSRFProtect(app)
+
+
+@app.before_request
+def _record_page_view():
+    # A real, minimal traffic counter -- one row per full page load, no IP,
+    # no user link. Static assets and JSON/action endpoints aren't "views".
+    if request.method == "GET" and not request.path.startswith("/static"):
+        db.session.add(PageView())
+        db.session.commit()
 
 
 @app.context_processor
@@ -502,6 +512,20 @@ def notifications():
 # Admin analytics -- aggregate counts across every module.
 # ---------------------------------------------------------------------------
 
+def _category_breakdown(kind: str) -> list[dict]:
+    counts: dict[str, int] = {}
+    for op in Opportunity.query.filter_by(kind=kind).all():
+        for cat in op.category_list():
+            counts[cat] = counts.get(cat, 0) + 1
+    if not counts:
+        return []
+    top = max(counts.values())
+    return [
+        {"label": CATEGORIES.get(k, k), "count": v, "pct": round(100 * v / top)}
+        for k, v in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:8]
+    ]
+
+
 @app.route("/admin/analytics")
 @login_required
 def admin_analytics():
@@ -521,7 +545,31 @@ def admin_analytics():
         "teams_formed": Team.query.count(),
         "users_total": User.query.count(),
     }
-    return render_template("admin_analytics.html", stats=stats)
+
+    first_view = db.session.query(db.func.min(PageView.created_at)).scalar()
+    page_views = {
+        "total": PageView.query.count(),
+        "since": first_view.strftime("%d %b %Y") if first_view else None,
+    }
+
+    paid_internships = Opportunity.query.filter(
+        Opportunity.kind == "internship", Opportunity.reward_inr.isnot(None)
+    ).all()
+    avg_stipend = (
+        round(sum(op.reward_inr for op in paid_internships) / len(paid_internships))
+        if paid_internships
+        else None
+    )
+
+    return render_template(
+        "admin_analytics.html",
+        stats=stats,
+        page_views=page_views,
+        hackathon_categories=_category_breakdown("hackathon"),
+        internship_categories=_category_breakdown("internship"),
+        avg_stipend=avg_stipend,
+        location_board=_location_board(),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -352,6 +352,18 @@ class SupportMessage(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
+class PageView(db.Model):
+    """One row per page load, for a real (not invented) traffic counter.
+
+    Deliberately minimal -- no IP, no user link, not even which page --
+    just a timestamp. Counting starts the moment this feature ships, so
+    the total is honest about not covering any history from before it.
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+
 class BloodDonor(db.Model):
     """A student's donor profile -- one per account."""
 

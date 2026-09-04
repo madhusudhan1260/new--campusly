@@ -4,6 +4,15 @@
   <h1 class="page-title">Analytics</h1>
   <p class="page-sub">Real counts pulled straight from the database.</p>
 
+  <h2 class="section-title">Platform Overview</h2>
+  <div class="stats-band">
+    <div class="stat"><div class="value">{{ page_views.total }}</div><div class="label">👁 Page Views{% if page_views.since %} (since {{ page_views.since }}){% endif %}</div></div>
+    <div class="stat"><div class="value">{{ stats.users_total }}</div><div class="label">👤 Accounts On Record</div></div>
+    <div class="stat"><div class="value">{{ stats.hackathons_posted + stats.internships_posted }}</div><div class="label">📋 Total Listings</div></div>
+    <div class="stat"><div class="value">{{ stats.items_reported }}</div><div class="label">🔎 Lost Reports</div></div>
+  </div>
+  <p class="hint">Page view counting started when this dashboard shipped -- there's no data from before that, and none is invented to fill the gap.</p>
+
   <h2 class="section-title">Opportunities</h2>
   <div class="stats-band">
     <div class="stat"><div class="value">{{ stats.hackathons_posted }}</div><div class="label">🚀 Hackathons Posted</div></div>
@@ -11,6 +20,43 @@
     <div class="stat"><div class="value">{{ stats.teams_formed }}</div><div class="label">👥 Teams Formed</div></div>
     <div class="stat"><div class="value">{{ stats.applications_tracked }}</div><div class="label">📋 Applications Tracked</div></div>
   </div>
+
+  {% if hackathon_categories or internship_categories %}
+    <div class="analytics-columns">
+      {% if hackathon_categories %}
+        <div>
+          <h3>Hackathon categories</h3>
+          <div class="bar-chart">
+            {% for c in hackathon_categories %}
+              <div class="bar-row">
+                <span class="bar-label">{{ c.label }}</span>
+                <div class="bar-track"><div class="bar-fill mod-hack" style="width: {{ c.pct }}%"></div></div>
+                <span class="bar-count">{{ c.count }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+      {% if internship_categories %}
+        <div>
+          <h3>Internship categories</h3>
+          <div class="bar-chart">
+            {% for c in internship_categories %}
+              <div class="bar-row">
+                <span class="bar-label">{{ c.label }}</span>
+                <div class="bar-track"><div class="bar-fill mod-intern" style="width: {{ c.pct }}%"></div></div>
+                <span class="bar-count">{{ c.count }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if avg_stipend %}
+    <p class="hint">Average stipend across internships with a numeric stipend entered: <strong>&#8377;{{ '{:,}'.format(avg_stipend) }}/month</strong>.</p>
+  {% endif %}
 
   <h2 class="section-title">Health</h2>
   <div class="stats-band">
@@ -27,4 +73,17 @@
     <div class="stat"><div class="value">{{ stats.claims_submitted }}</div><div class="label">📝 Claims Submitted</div></div>
     <div class="stat"><div class="value">{{ stats.users_total }}</div><div class="label">👤 Accounts On Record</div></div>
   </div>
+
+  {% if location_board %}
+    <h3>Most active locations</h3>
+    <div class="location-board">
+      {% for row in location_board %}
+        <div class="location-row loc-{{ row.level }}">
+          <span class="loc-name">{{ row.location }}</span>
+          <span class="loc-dot loc-dot-{{ row.level }}"></span>
+          <span class="loc-count">{{ row.count }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
 {% endblock %}

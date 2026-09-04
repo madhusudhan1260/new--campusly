@@ -2640,3 +2640,35 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: var(--fs-xs);
 }
 
+/* ---- Analytics bar charts -------------------------------------------------- */
+
+.analytics-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-6);
+  margin: 1rem 0;
+}
+
+.analytics-columns h3 { font-size: var(--fs-sm); margin: 0 0 0.6rem; }
+
+.bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bar-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 28px;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--fs-xs);
+}
+
+.bar-label { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 8px; background: var(--bg-elev-2); border-radius: 999px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 999px; }
+.bar-fill.mod-hack { background: var(--mod-hack); }
+.bar-fill.mod-intern { background: var(--mod-intern); }
+.bar-count { text-align: right; font-weight: 700; }
+
