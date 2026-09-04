@@ -1,35 +1,72 @@
-"""No sign-in wall: every visitor shares one account.
+"""Password hashing, session helpers and route-guarding decorators.
 
-There used to be per-person login/signup here. Removed on request -- the
-whole site is now open, including admin actions. current_user() always
-resolves to the single seeded account (role=super_admin, created by
-_seed_super_admin() in app.py on first run), so bookmarks, claims,
-appointments and everything else tied to "the current user" now belong to
-that one shared identity instead of to individual people.
+Three roles: student (self-signup), doss (campus DOSS staff -- manages
+hackathons/internships/health/lost-found, same permissions the old single
+"admin" role had), and super_admin (one seeded account, full access
+including user role management).
 """
 
 from __future__ import annotations
 
-from werkzeug.security import generate_password_hash
+from functools import wraps
 
+from flask import abort, flash, redirect, session, url_for
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from extensions import db
 from models import User
+
+SESSION_KEY = "user_id"
 
 
 def hash_password(password: str) -> str:
-    """Still needed to populate the shared account's (never-checked) password_hash column."""
     return generate_password_hash(password)
 
 
+def verify_password(password: str, password_hash: str) -> bool:
+    return check_password_hash(password_hash, password)
+
+
+def login_user(user: User) -> None:
+    session.clear()
+    session[SESSION_KEY] = user.id
+    session.permanent = True
+
+
+def logout_user() -> None:
+    session.clear()
+
+
 def current_user() -> User | None:
-    return User.query.filter_by(role="super_admin").first()
+    user_id = session.get(SESSION_KEY)
+    if user_id is None:
+        return None
+    return db.session.get(User, user_id)
 
 
 def login_required(view):
-    return view
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if current_user() is None:
+            flash("Please log in to continue.", "error")
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+
+    return wrapper
 
 
 def role_required(*roles: str):
     def decorator(view):
-        return view
+        @wraps(view)
+        def wrapper(*args, **kwargs):
+            user = current_user()
+            if user is None:
+                flash("Please log in to continue.", "error")
+                return redirect(url_for("login"))
+            if user.role not in roles:
+                abort(403)
+            return view(*args, **kwargs)
+
+        return wrapper
 
     return decorator

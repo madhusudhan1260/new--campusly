@@ -190,7 +190,7 @@
 
     {% if logged_in_user.is_admin() %}
       <div class="checklist">
-        <h3>Manage doctors (admin)</h3>
+        <h3>Manage doctors (DOSS)</h3>
         <form id="doctor-form" method="post" action="{{ url_for('add_doctor') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="row">

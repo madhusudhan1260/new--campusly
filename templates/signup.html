@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Sign up — Campusly{% endblock %}
+{% block content %}
+  <div class="auth-shell">
+    <div class="auth-card">
+      <img class="auth-logo" src="{{ url_for('static', filename='logo.svg') }}" alt="">
+      <div class="auth-brand">Campusly</div>
+      <p class="auth-sub">Create your student account</p>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" name="name" type="text" required autofocus>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" minlength="8" required>
+          <span class="hint">At least 8 characters.</span>
+        </div>
+        <button class="btn primary block" type="submit">Create account</button>
+      </form>
+      <p class="auth-switch">Already have an account? <a href="{{ url_for('login') }}">Log in</a></p>
+      <p class="auth-note">DOSS and super-admin accounts are set up separately by the site owner.</p>
+    </div>
+  </div>
+{% endblock %}

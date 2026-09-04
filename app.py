@@ -21,7 +21,7 @@ from dotenv import load_dotenv
 from flask import Flask, abort, flash, jsonify, redirect, render_template, request, url_for
 from flask_wtf import CSRFProtect
 
-from auth import current_user, hash_password, login_required, role_required
+from auth import current_user, hash_password, login_required, login_user, logout_user, role_required, verify_password
 from extensions import db
 from live_feeds import fetch_live_hackathons, fetch_live_internships
 from models import (
@@ -117,16 +117,62 @@ def inject_user():
 
 
 # ---------------------------------------------------------------------------
-# Auth -- removed. Every visitor shares one account (see auth.py). These
-# three redirects exist only so an old bookmark to /login, /signup or
-# /logout lands somewhere sensible instead of 404ing.
+# Auth -- three roles: student (self-signup), doss (campus DOSS staff),
+# super_admin (one seeded account). DOSS and super_admin accounts are set
+# up via .env / by an existing super_admin, not through this signup form.
 # ---------------------------------------------------------------------------
 
 @app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if current_user():
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()[:120]
+        email = (request.form.get("email") or "").strip().lower()[:255]
+        password = request.form.get("password") or ""
+
+        if not name or not email or not password:
+            flash("Please fill in your name, email and password.", "error")
+        elif len(password) < 8:
+            flash("Password must be at least 8 characters.", "error")
+        elif User.query.filter_by(email=email).first() is not None:
+            flash("An account with that email already exists.", "error")
+        else:
+            user = User(name=name, email=email, password_hash=hash_password(password), role="student")
+            db.session.add(user)
+            db.session.commit()
+            login_user(user)
+            flash("Welcome to Campusly!", "success")
+            return redirect(url_for("dashboard"))
+
+    return render_template("signup.html")
+
+
 @app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user():
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        user = User.query.filter_by(email=email).first()
+
+        if user is None or not verify_password(password, user.password_hash):
+            flash("Incorrect email or password.", "error")
+        else:
+            login_user(user)
+            return redirect(url_for("dashboard"))
+
+    return render_template("login.html")
+
+
 @app.post("/logout")
-def _auth_redirect():
-    return redirect(url_for("dashboard"))
+def logout():
+    logout_user()
+    flash("Logged out.", "success")
+    return redirect(url_for("login"))
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +573,7 @@ def _category_breakdown(kind: str) -> list[dict]:
 
 
 @app.route("/admin/analytics")
-@login_required
+@role_required("doss", "super_admin")
 def admin_analytics():
     stats = {
         "hackathons_posted": Opportunity.query.filter_by(kind="hackathon").count(),
@@ -1157,7 +1203,7 @@ def _parse_int(raw: str | None) -> int | None:
 
 
 @app.post("/opportunities")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def create_opportunity():
     kind = request.form.get("kind")
     if kind not in ("hackathon", "internship"):
@@ -1215,7 +1261,7 @@ def create_opportunity():
 
 
 @app.post("/opportunities/<int:opportunity_id>/delete")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def delete_opportunity(opportunity_id: int):
     opportunity = db.session.get(Opportunity, opportunity_id)
     if opportunity is None:
@@ -1227,7 +1273,7 @@ def delete_opportunity(opportunity_id: int):
 
 
 @app.post("/opportunities/<int:opportunity_id>/status")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def toggle_opportunity_status(opportunity_id: int):
     opportunity = db.session.get(Opportunity, opportunity_id)
     if opportunity is None:
@@ -1384,7 +1430,7 @@ def create_submission(opportunity_id: int):
 
 
 @app.post("/submissions/<int:submission_id>/score")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def score_submission(submission_id: int):
     submission = db.session.get(Submission, submission_id)
     if submission is None:
@@ -1732,7 +1778,7 @@ def health():
 # --- Doctors (admin-managed) -----------------------------------------------
 
 @app.post("/health/doctors")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def add_doctor():
     name = (request.form.get("name") or "").strip()[:120]
     specialty = (request.form.get("specialty") or "").strip()[:120]
@@ -1746,7 +1792,7 @@ def add_doctor():
 
 
 @app.post("/health/doctors/<int:doctor_id>/toggle")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def toggle_doctor(doctor_id: int):
     doctor = db.session.get(Doctor, doctor_id)
     if doctor is None:
@@ -1838,7 +1884,7 @@ def create_sos():
 
 
 @app.post("/health/sos/<int:sos_id>/resolve")
-@role_required("admin", "super_admin")
+@role_required("doss", "super_admin")
 def resolve_sos(sos_id: int):
     sos = db.session.get(SOSRequest, sos_id)
     if sos is None:
@@ -2077,7 +2123,7 @@ def change_user_role(user_id: int):
         return redirect(url_for("manage_users"))
 
     new_role = request.form.get("role")
-    if new_role not in ("student", "admin"):
+    if new_role not in ("student", "doss"):
         abort(400)
 
     target.role = new_role
@@ -2123,9 +2169,56 @@ def _seed_super_admin() -> None:
     print("=" * 70)
 
 
+def _seed_doss() -> None:
+    """Optional -- only creates a DOSS account if DOSS_EMAIL is set. Without
+    it, the first DOSS staffer is created by having a super_admin promote an
+    existing student account from /admin/users instead."""
+    email = os.environ.get("DOSS_EMAIL", "").strip().lower()
+    if not email:
+        return
+    if User.query.filter_by(role="doss").first() is not None:
+        return
+
+    password = os.environ.get("DOSS_PASSWORD", "").strip()
+    generated = False
+    if not password:
+        password = secrets.token_urlsafe(9)
+        generated = True
+
+    existing = User.query.filter_by(email=email).first()
+    if existing is not None:
+        existing.role = "doss"
+        db.session.commit()
+        app.logger.warning("Promoted existing user %s to doss.", email)
+        return
+
+    doss = User(name="DOSS Office", email=email, password_hash=hash_password(password), role="doss")
+    db.session.add(doss)
+    db.session.commit()
+
+    print("=" * 70)
+    print(" First run: created the DOSS account")
+    print(f"   email:    {email}")
+    if generated:
+        print(f"   password: {password}   (auto-generated -- save this now)")
+    else:
+        print("   password: (from DOSS_PASSWORD in .env)")
+    print(" Set DOSS_EMAIL / DOSS_PASSWORD in .env to control this.")
+    print("=" * 70)
+
+
+# Existing rows from before the "doss" role existed (the old shared "admin"
+# role) are migrated forward here so nobody's access silently breaks.
+def _migrate_legacy_admin_role() -> None:
+    User.query.filter_by(role="admin").update({"role": "doss"})
+    db.session.commit()
+
+
 with app.app_context():
     db.create_all()
+    _migrate_legacy_admin_role()
     _seed_super_admin()
+    _seed_doss()
 
 
 if __name__ == "__main__":

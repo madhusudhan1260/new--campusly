@@ -7,7 +7,7 @@ from datetime import datetime
 
 from extensions import db
 
-ROLES = ("student", "admin", "super_admin")
+ROLES = ("student", "doss", "super_admin")
 OPPORTUNITY_KINDS = ("hackathon", "internship")
 
 # Same taxonomy as the hackathon-hub classifier's CATEGORIES keys, so the
@@ -41,7 +41,8 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     def is_admin(self) -> bool:
-        return self.role in ("admin", "super_admin")
+        """True for DOSS staff and super admin -- the two roles with elevated access."""
+        return self.role in ("doss", "super_admin")
 
     def is_super_admin(self) -> bool:
         return self.role == "super_admin"

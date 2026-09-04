@@ -2,7 +2,7 @@
 {% block title %}Manage Users — Campusly{% endblock %}
 {% block content %}
   <h1 class="page-title">Manage users</h1>
-  <p class="page-sub">Promote a student to admin so they can post hackathons and internships.</p>
+  <p class="page-sub">Promote a student to DOSS staff so they can manage hackathons, internships, health and lost &amp; found.</p>
 
   <div class="table-card">
     <table>
@@ -19,7 +19,7 @@
             <td>
               {% if u.role == 'super_admin' %}
                 <span class="hint">—</span>
-              {% elif u.role == 'admin' %}
+              {% elif u.role == 'doss' %}
                 <form method="post" action="{{ url_for('change_user_role', user_id=u.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="hidden" name="role" value="student">
@@ -28,8 +28,8 @@
               {% else %}
                 <form method="post" action="{{ url_for('change_user_role', user_id=u.id) }}">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="role" value="admin">
-                  <button class="btn primary small" type="submit">Make admin</button>
+                  <input type="hidden" name="role" value="doss">
+                  <button class="btn primary small" type="submit">Make DOSS</button>
                 </form>
               {% endif %}
             </td>
