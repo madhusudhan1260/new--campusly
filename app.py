@@ -262,12 +262,79 @@ CAMPUSLY_ASSISTANT_PROMPT = (
 )
 
 
+def _assistant_keyword_filter(query, question_lower: str):
+    """If the question names a known category (by key or label), filter to
+    it and say so; otherwise leave the query as-is and say nothing."""
+    for key, label in CATEGORIES.items():
+        if key.replace("-", " ") in question_lower or label.lower() in question_lower:
+            return query.filter(Opportunity.categories.ilike(f"%{key}%")), label
+    return query, None
+
+
+def _assistant_intent(question: str) -> dict | None:
+    """Real lookups for the handful of things students actually ask for --
+    counts and links come straight from the database, never invented. Falls
+    through to free-text Gemini Q&A (in assistant_ask) for anything else."""
+    q = question.lower()
+
+    # Deadline-scoped questions are more specific than a bare "hackathon" /
+    # "internship" mention, so this must be checked first -- otherwise
+    # "hackathons closing this week" would match the generic count below
+    # and never reach here.
+    if any(w in q for w in ("closing", "deadline", "urgent")):
+        week_out = date.today() + timedelta(days=7)
+        kind = "hackathon" if "hackathon" in q else "internship" if "internship" in q or "intern" in q else None
+        query = Opportunity.query.filter(
+            Opportunity.status == "open", Opportunity.deadline.isnot(None),
+            Opportunity.deadline >= date.today(), Opportunity.deadline <= week_out,
+        )
+        if kind:
+            query = query.filter(Opportunity.kind == kind)
+        count = query.count()
+        label = f"{kind}" if kind else "hackathon/internship"
+        text = f"⏰ {count} {label} listing(s) are closing within a week."
+        return {"text": text, "url": url_for("hackathons" if kind != "internship" else "internships"), "label": "View Listings"}
+
+    if "hackathon" in q:
+        query, keyword = _assistant_keyword_filter(Opportunity.query.filter_by(kind="hackathon", status="open"), q)
+        count = query.count()
+        text = f"🚀 I found {count} open hackathon{'' if count == 1 else 's'}" + (f" related to {keyword}" if keyword else "") + "."
+        return {"text": text, "url": url_for("hackathons"), "label": "View Hackathons"}
+
+    if "internship" in q or "intern" in q:
+        query, keyword = _assistant_keyword_filter(Opportunity.query.filter_by(kind="internship", status="open"), q)
+        count = query.count()
+        text = f"💼 I found {count} open internship{'' if count == 1 else 's'}" + (f" related to {keyword}" if keyword else "") + "."
+        return {"text": text, "url": url_for("internships"), "label": "View Internships"}
+
+    if any(w in q for w in ("doctor", "appointment", "health center", "clinic", "sick", "unwell")):
+        available = Doctor.query.filter_by(available=True).count()
+        text = f"🏥 {available} doctor(s) available now at {HEALTH_CENTER_NAME} ({HEALTH_CENTER_LOCATION})."
+        return {"text": text, "url": url_for("health"), "label": "Book Appointment"}
+
+    if any(w in q for w in ("blood", "donor", "donate")):
+        open_requests = BloodRequest.query.filter_by(status="open").count()
+        text = f"🩸 {open_requests} open blood request(s) right now. You can also register as a donor."
+        return {"text": text, "url": url_for("health"), "label": "Open Blood Network"}
+
+    if any(phrase in q for phrase in ("i lost", "i found", "lost my", "found a", "misplaced")):
+        text = "🔎 Let's create a Lost & Found report."
+        return {"text": text, "url": url_for("lost_found"), "label": "Report an Item"}
+
+    return None
+
+
 @app.post("/assistant/ask")
 @login_required
 def assistant_ask():
     question = (request.form.get("question") or "").strip()[:500]
     if not question:
         return jsonify({"ok": False, "error": "Type a question first."}), 400
+
+    intent = _assistant_intent(question)
+    if intent:
+        return jsonify({"ok": True, "answer": intent["text"], "action_url": intent["url"], "action_label": intent["label"]})
+
     payload = {"contents": [{"parts": [{"text": CAMPUSLY_ASSISTANT_PROMPT + "\n\nStudent's question: " + question}]}]}
     text, error = _gemini_text(payload)
     if error:

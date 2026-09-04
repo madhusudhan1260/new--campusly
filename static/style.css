@@ -2043,6 +2043,18 @@ tbody tr:last-child td { border-bottom: none; }
 .ai-bubble.q { align-self: flex-end; background: var(--accent-soft); color: var(--accent-text); }
 .ai-bubble.a { align-self: flex-start; background: var(--bg-elev-2); color: var(--text); }
 
+.ai-action-btn {
+  display: inline-block;
+  margin-top: 0.4rem;
+  background: var(--accent);
+  color: white;
+  font-weight: 700;
+  font-size: var(--fs-2xs);
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  text-decoration: none;
+}
+
 .ai-panel-foot {
   display: flex;
   gap: 0.4rem;

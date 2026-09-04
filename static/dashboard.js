@@ -89,6 +89,14 @@
           aBubble.className = "ai-bubble a";
           if (result.ok && result.data.ok) {
             aBubble.innerHTML = escapeHtml(result.data.answer).replace(/\n/g, "<br>");
+            if (result.data.action_url) {
+              var actionLink = document.createElement("a");
+              actionLink.href = result.data.action_url;
+              actionLink.className = "ai-action-btn";
+              actionLink.textContent = result.data.action_label || "View";
+              aBubble.appendChild(document.createElement("br"));
+              aBubble.appendChild(actionLink);
+            }
           } else {
             aBubble.textContent = (result.data && result.data.error) || "Could not reach the AI assistant.";
           }
