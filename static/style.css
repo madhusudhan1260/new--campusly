@@ -1794,6 +1794,8 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* ---- Lost & Found claim flow ------------------------------------------- */
 
+.claim-form[hidden] { display: none; }
+
 .claim-form {
   display: flex;
   flex-direction: column;
@@ -2175,6 +2177,8 @@ tbody tr:last-child td { border-bottom: none; }
 
 .team-toggle-btn { margin-top: 0.4rem; }
 
+.teams-panel[hidden] { display: none; }
+
 .teams-panel {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
@@ -2281,6 +2285,8 @@ tbody tr:last-child td { border-bottom: none; }
   padding: 0.1rem 0.35rem;
   margin-left: auto;
 }
+
+.cmdk-overlay[hidden] { display: none; }
 
 .cmdk-overlay {
   position: fixed;
@@ -2594,6 +2600,8 @@ tbody tr:last-child td { border-bottom: none; }
 .lb-score { font-weight: 800; color: var(--mod-hack); }
 
 /* ---- Project showcase ------------------------------------------------------ */
+
+.showcase-panel[hidden] { display: none; }
 
 .showcase-panel {
   margin-top: 0.5rem;
