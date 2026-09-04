@@ -6,6 +6,22 @@
     el.className = "msg " + (ok ? "ok" : "err");
   }
 
+  document.querySelectorAll(".stats-band .value[data-count-to]").forEach(function (el) {
+    var target = parseInt(el.getAttribute("data-count-to"), 10) || 0;
+    if (target === 0) {
+      el.textContent = "0";
+      return;
+    }
+    var start = null;
+    function step(ts) {
+      if (!start) start = ts;
+      var progress = Math.min((ts - start) / 900, 1);
+      el.textContent = Math.round(progress * target);
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  });
+
   var photoInput = document.getElementById("f-photo");
   var aiBtn = document.getElementById("ai-btn");
   var aiStatus = document.getElementById("ai-status");
@@ -166,8 +182,17 @@
           } else {
             box.innerHTML = data.claims
               .map(function (c) {
+                var checklist = (c.confidence || [])
+                  .map(function (chk) {
+                    return (
+                      '<li class="' + (chk.ok ? "conf-ok" : "conf-miss") + '">' +
+                      (chk.ok ? "✓" : "✕") + " " + escapeHtml(chk.label) +
+                      "</li>"
+                    );
+                  })
+                  .join("");
                 return (
-                  '<p class="hint"><strong>' +
+                  '<div class="claim-entry"><p class="hint"><strong>' +
                   escapeHtml(c.name) +
                   "</strong> (" +
                   escapeHtml(c.email) +
@@ -175,7 +200,7 @@
                   escapeHtml(c.submitted) +
                   "<br>" +
                   escapeHtml(c.details) +
-                  "</p>"
+                  '</p><ul class="confidence-checklist">' + checklist + "</ul></div>"
                 );
               })
               .join("");

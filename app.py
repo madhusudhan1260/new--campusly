@@ -596,6 +596,36 @@ def _similar_items(items: list[Item]) -> dict[int, list[Item]]:
     return result
 
 
+def _location_board() -> list[dict]:
+    """Real counts of available items grouped by the location text they were
+    reported with -- a schematic board, not a real campus map (this app has
+    no building coordinates)."""
+    rows = (
+        db.session.query(Item.location, db.func.count(Item.id))
+        .filter(Item.status == "Available")
+        .group_by(Item.location)
+        .order_by(db.func.count(Item.id).desc())
+        .limit(10)
+        .all()
+    )
+    board = []
+    for location, count in rows:
+        level = "red" if count >= 5 else "yellow" if count >= 2 else "green"
+        board.append({"location": location, "count": count, "level": level})
+    return board
+
+
+def _lost_found_stats() -> dict:
+    month_start = date.today().replace(day=1)
+    reported = Item.query.filter(Item.created_at >= month_start).count()
+    returned = Item.query.filter(Item.status == "Returned", Item.created_at >= month_start).count()
+    return {
+        "reported": reported,
+        "returned": returned,
+        "recovery_pct": round(100 * returned / reported) if reported else None,
+    }
+
+
 @app.route("/lost-found")
 @login_required
 def lost_found():
@@ -634,6 +664,8 @@ def lost_found():
         my_claimed_item_ids=my_claimed_item_ids,
         manageable_item_ids=manageable_item_ids,
         similar_items=_similar_items(items),
+        location_board=_location_board(),
+        lf_stats=_lost_found_stats(),
     )
 
 
@@ -703,6 +735,31 @@ def claim_item(item_id: int):
     )
 
 
+def _words(text: str) -> set[str]:
+    return {w for w in (text or "").lower().split() if len(w) > 3}
+
+
+def _claim_confidence(claim: Claim, item: Item) -> list[dict]:
+    """Plain word-overlap checks between the claim's details and the item's
+    own record -- not a verdict, just something for whoever's handing the
+    item over to compare. Never auto-approves or auto-rejects a claim."""
+    detail_words = _words(claim.details)
+    checks = [
+        {
+            "label": "Mentions the location it was found",
+            "ok": bool(_words(item.location) & detail_words),
+        }
+    ]
+    if item.description:
+        checks.append(
+            {
+                "label": "Overlaps with the reported description",
+                "ok": bool(_words(item.description) & detail_words),
+            }
+        )
+    return checks
+
+
 @app.get("/lost-found/<int:item_id>/claims")
 @login_required
 def item_claims(item_id: int):
@@ -723,6 +780,7 @@ def item_claims(item_id: int):
                     "email": c.claimant.email,
                     "details": c.details,
                     "submitted": c.created_at.strftime("%d %b, %H:%M"),
+                    "confidence": _claim_confidence(c, item),
                 }
                 for c in claims
             ],

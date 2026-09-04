@@ -6,6 +6,25 @@
     <span class="stat-pill">{{ total_available }} item{{ '' if total_available == 1 else 's' }} up for grabs</span>
   </div>
 
+  <div class="stats-band">
+    <div class="stat"><div class="value" data-count-to="{{ lf_stats.reported }}">0</div><div class="label">Reported This Month</div></div>
+    <div class="stat"><div class="value" data-count-to="{{ lf_stats.returned }}">0</div><div class="label">Returned This Month</div></div>
+    <div class="stat good"><div class="value">{{ lf_stats.recovery_pct if lf_stats.recovery_pct is not none else '--' }}{{ '%' if lf_stats.recovery_pct is not none else '' }}</div><div class="label">Recovery Rate</div></div>
+  </div>
+
+  {% if location_board %}
+    <h2 class="section-title">Reports by Location</h2>
+    <div class="location-board">
+      {% for row in location_board %}
+        <a class="location-row loc-{{ row.level }}" href="{{ url_for('lost_found', q=row.location) }}">
+          <span class="loc-name">{{ row.location }}</span>
+          <span class="loc-dot loc-dot-{{ row.level }}"></span>
+          <span class="loc-count">{{ row.count }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   <section class="report-card">
     <h2>Found something? Log it here.</h2>
     <form id="report-form" enctype="multipart/form-data">

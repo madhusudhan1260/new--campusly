@@ -2494,3 +2494,48 @@ tbody tr:last-child td { border-bottom: none; }
   gap: 0.3rem;
 }
 
+/* ---- Lost & Found location board (schematic) ------------------------------ */
+
+.location-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.location-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.8rem;
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.location-row:hover { border-color: var(--mod-lost); transform: translateY(-2px); }
+
+.loc-name { flex: 1; font-size: var(--fs-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loc-count { font-weight: 700; font-size: var(--fs-sm); }
+
+.loc-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.loc-dot-green { background: var(--good); }
+.loc-dot-yellow { background: var(--warn); }
+.loc-dot-red { background: var(--hot); }
+
+/* ---- Claim confidence checklist -------------------------------------------- */
+
+.claim-entry { margin-bottom: 0.6rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--border); }
+.claim-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+.confidence-checklist {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  font-size: var(--fs-2xs);
+}
+.conf-ok { color: var(--good); }
+.conf-miss { color: var(--text-faint); }
+
