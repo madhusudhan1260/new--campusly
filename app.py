@@ -46,6 +46,7 @@ from models import (
     Opportunity,
     Profile,
     SOSRequest,
+    Submission,
     SupportMessage,
     Team,
     TeamMember,
@@ -979,9 +980,18 @@ def _skill_gaps(opportunities: list[Opportunity]) -> dict[int, dict]:
 def hackathons():
     opportunities, filters = _opportunity_list("hackathon")
     teams_by_opportunity: dict[int, list] = {}
+    submissions_by_opportunity: dict[int, list] = {}
     if opportunities:
-        for team in Team.query.filter(Team.opportunity_id.in_([op.id for op in opportunities])).all():
+        op_ids = [op.id for op in opportunities]
+        for team in Team.query.filter(Team.opportunity_id.in_(op_ids)).all():
             teams_by_opportunity.setdefault(team.opportunity_id, []).append(team)
+        for sub in Submission.query.filter(Submission.opportunity_id.in_(op_ids)).order_by(Submission.created_at.desc()).all():
+            submissions_by_opportunity.setdefault(sub.opportunity_id, []).append(sub)
+
+    leaderboard = (
+        Submission.query.filter(Submission.score.isnot(None)).order_by(Submission.score.desc()).limit(10).all()
+    )
+
     return render_template(
         "hackathons.html",
         opportunities=opportunities,
@@ -993,6 +1003,8 @@ def hackathons():
         stats=_opportunity_stats("hackathon", ("Online",)),
         live_hackathons=fetch_live_hackathons(),
         teams_by_opportunity=teams_by_opportunity,
+        submissions_by_opportunity=submissions_by_opportunity,
+        leaderboard=leaderboard,
     )
 
 
@@ -1212,6 +1224,74 @@ def delete_team(team_id: int):
     if team is None:
         return jsonify({"ok": False, "error": "Already gone."}), 404
     db.session.delete(team)
+    db.session.commit()
+    return jsonify({"ok": True})
+
+
+# ---------------------------------------------------------------------------
+# Project showcase + leaderboard -- score is null until an admin enters a
+# real result; the leaderboard only ever lists submissions that have one.
+# ---------------------------------------------------------------------------
+
+@app.post("/hackathons/<int:opportunity_id>/submissions")
+@login_required
+def create_submission(opportunity_id: int):
+    opportunity = db.session.get(Opportunity, opportunity_id)
+    if opportunity is None or opportunity.kind != "hackathon":
+        return jsonify({"ok": False, "error": "Not a hackathon."}), 404
+
+    team_name = (request.form.get("team_name") or "").strip()[:120]
+    project_name = (request.form.get("project_name") or "").strip()[:150]
+    if not team_name or not project_name:
+        return jsonify({"ok": False, "error": "Team name and project name are required."}), 400
+
+    filename = None
+    file = request.files.get("screenshot")
+    if file and file.filename and allowed_file(file.filename):
+        extension = file.filename.rsplit(".", 1)[1].lower()
+        filename = f"{uuid.uuid4().hex}.{extension}"
+        file.save(os.path.join(UPLOAD_DIR, filename))
+
+    submission = Submission(
+        opportunity_id=opportunity_id,
+        team_name=team_name,
+        project_name=project_name,
+        description=(request.form.get("description") or "").strip()[:1000] or None,
+        github_url=(request.form.get("github_url") or "").strip()[:500] or None,
+        demo_url=(request.form.get("demo_url") or "").strip()[:500] or None,
+        technologies=(request.form.get("technologies") or "").strip()[:300] or None,
+        screenshot_filename=filename,
+        submitted_by_id=current_user().id,
+    )
+    db.session.add(submission)
+    db.session.commit()
+    return jsonify({"ok": True, "submission_id": submission.id})
+
+
+@app.post("/submissions/<int:submission_id>/score")
+@role_required("admin", "super_admin")
+def score_submission(submission_id: int):
+    submission = db.session.get(Submission, submission_id)
+    if submission is None:
+        return jsonify({"ok": False, "error": "Already gone."}), 404
+    score = request.form.get("score", type=int)
+    if score is None or not (0 <= score <= 10000):
+        return jsonify({"ok": False, "error": "Enter a valid score."}), 400
+    submission.score = score
+    db.session.commit()
+    return jsonify({"ok": True, "score": score})
+
+
+@app.post("/submissions/<int:submission_id>/delete")
+@login_required
+def delete_submission(submission_id: int):
+    submission = db.session.get(Submission, submission_id)
+    if submission is None:
+        return jsonify({"ok": False, "error": "Already gone."}), 404
+    user = current_user()
+    if submission.submitted_by_id != user.id and not user.is_admin():
+        abort(403)
+    db.session.delete(submission)
     db.session.commit()
     return jsonify({"ok": True})
 

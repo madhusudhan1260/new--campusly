@@ -16,6 +16,20 @@
     <div class="stat accent"><div class="value">{{ stats.bookmarked }}</div><div class="label">Saved</div></div>
   </div>
 
+  {% if leaderboard %}
+    <h2 class="section-title">🏆 Campus Hackathon Leaderboard</h2>
+    <div class="leaderboard">
+      {% for s in leaderboard %}
+        <div class="leaderboard-row {{ 'rank-1' if loop.index == 1 else 'rank-2' if loop.index == 2 else 'rank-3' if loop.index == 3 else '' }}">
+          <span class="lb-rank">{{ loop.index }}</span>
+          <span class="lb-team">{{ s.team_name }}</span>
+          <span class="lb-project">{{ s.project_name }} &middot; {{ s.opportunity.title }}</span>
+          <span class="lb-score">{{ s.score }} pts</span>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% if logged_in_user.is_admin() %}
     {{ opportunity_form('hackathon', modes) }}
   {% endif %}
@@ -27,7 +41,7 @@
   <section class="board op-board">
     {% if opportunities %}
       {% for op in opportunities %}
-        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0, teams=teams_by_opportunity.get(op.id, [])) }}
+        {{ opportunity_card(op, logged_in_user.is_admin(), op.id in bookmarked_ids, today, loop.index0, teams=teams_by_opportunity.get(op.id, []), submissions=submissions_by_opportunity.get(op.id, [])) }}
       {% endfor %}
     {% else %}
       <p class="empty">No hackathons match these filters.</p>

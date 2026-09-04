@@ -224,6 +224,36 @@ class TeamMember(db.Model):
     role = db.Column(db.String(80), nullable=True)
 
 
+class Submission(db.Model):
+    """A post-hackathon project showcase entry.
+
+    team_name is free text, not a foreign key to Team -- a submission can
+    exist even if the team never used the roster feature. score is null
+    until an admin enters real judging results; the leaderboard only ever
+    shows submissions that have one, never an invented ranking.
+    """
+
+    id = db.Column(db.Integer, primary_key=True)
+    opportunity_id = db.Column(db.Integer, db.ForeignKey("opportunity.id"), nullable=False, index=True)
+    team_name = db.Column(db.String(120), nullable=False)
+    project_name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=True)
+    github_url = db.Column(db.String(500), nullable=True)
+    demo_url = db.Column(db.String(500), nullable=True)
+    technologies = db.Column(db.String(300), nullable=True)  # comma-separated
+    screenshot_filename = db.Column(db.String(255), nullable=True)
+    score = db.Column(db.Integer, nullable=True)
+    submitted_by_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    opportunity = db.relationship("Opportunity", foreign_keys=[opportunity_id])
+
+    def tech_list(self) -> list[str]:
+        if not self.technologies:
+            return []
+        return [t.strip() for t in self.technologies.split(",") if t.strip()]
+
+
 # ---------------------------------------------------------------------------
 # CampusCare -- Health Center, SOS, Wellness, Blood Network, Appointments.
 # ---------------------------------------------------------------------------

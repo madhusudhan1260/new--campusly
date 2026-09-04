@@ -1,4 +1,4 @@
-{% macro opportunity_card(op, can_manage, is_bookmarked, today, index=0, match_pct=None, app_status=None, application_statuses=None, teams=None, skill_gap=None, ai_ready=False) %}
+{% macro opportunity_card(op, can_manage, is_bookmarked, today, index=0, match_pct=None, app_status=None, application_statuses=None, teams=None, skill_gap=None, ai_ready=False, submissions=None) %}
   <article class="op-card fade-up {{ 'op-closed' if op.status == 'closed' else '' }}" data-op-id="{{ op.id }}" style="--fade-delay: {{ (index * 0.04)|round(3) }}s">
     <div class="op-head">
       <span class="op-mode mode-{{ op.mode|lower }}">{{ op.mode }}</span>
@@ -123,6 +123,54 @@
           <textarea name="members" rows="2" placeholder="Members, one per line: Name - Role"></textarea>
           <button class="btn primary small" type="submit">Create team</button>
           <span class="msg team-msg"></span>
+        </form>
+      </div>
+    {% endif %}
+
+    {% if submissions is not none %}
+      <button class="btn ghost small showcase-toggle-btn" type="button" data-id="{{ op.id }}">
+        📁 Project Showcase{% if submissions %} ({{ submissions|length }}){% endif %}
+      </button>
+      <div class="showcase-panel" id="showcase-{{ op.id }}" hidden>
+        {% for s in submissions %}
+          <div class="submission-card">
+            <div class="submission-head">
+              <h4>{{ s.project_name }}</h4>
+              {% if s.score is not none %}<span class="score-badge">{{ s.score }} pts</span>{% endif %}
+            </div>
+            <p class="submission-team">{{ s.team_name }}</p>
+            {% if s.screenshot_filename %}<img class="submission-shot" src="{{ url_for('static', filename='uploads/' + s.screenshot_filename) }}" alt="{{ s.project_name }}">{% endif %}
+            {% if s.description %}<p class="submission-desc">{{ s.description }}</p>{% endif %}
+            {% if s.tech_list() %}
+              <div class="role-tags">
+                {% for t in s.tech_list() %}<span class="role-tag tech-tag">{{ t }}</span>{% endfor %}
+              </div>
+            {% endif %}
+            <div class="submission-links">
+              {% if s.github_url %}<a href="{{ s.github_url }}" target="_blank" rel="noopener">GitHub &#8599;</a>{% endif %}
+              {% if s.demo_url %}<a href="{{ s.demo_url }}" target="_blank" rel="noopener">Demo &#8599;</a>{% endif %}
+            </div>
+            {% if can_manage %}
+              <div class="row row-tight score-row">
+                <input type="number" class="score-input" min="0" max="10000" placeholder="Score" value="{{ s.score if s.score is not none else '' }}" data-id="{{ s.id }}">
+                <button class="btn ghost small score-save-btn" type="button" data-id="{{ s.id }}">Save score</button>
+                <button class="btn ghost small submission-delete-btn" type="button" data-id="{{ s.id }}">Delete</button>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+        <form class="submission-form" data-id="{{ op.id }}" enctype="multipart/form-data">
+          <input type="text" name="team_name" placeholder="Team name" maxlength="120" required>
+          <input type="text" name="project_name" placeholder="Project name" maxlength="150" required>
+          <textarea name="description" rows="2" placeholder="What does it do?" maxlength="1000"></textarea>
+          <input type="text" name="technologies" placeholder="Technologies (comma-separated)" maxlength="300">
+          <div class="row row-tight">
+            <input type="url" name="github_url" placeholder="GitHub link (optional)">
+            <input type="url" name="demo_url" placeholder="Demo link (optional)">
+          </div>
+          <input type="file" name="screenshot" accept="image/*">
+          <button class="btn primary small" type="submit">Submit project</button>
+          <span class="msg submission-msg"></span>
         </form>
       </div>
     {% endif %}

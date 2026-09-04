@@ -201,4 +201,89 @@
       });
     });
   });
+
+  // ---------------------------------------------------------- Project showcase
+
+  document.querySelectorAll(".showcase-toggle-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var panel = document.getElementById("showcase-" + button.getAttribute("data-id"));
+      if (panel) panel.hidden = !panel.hidden;
+    });
+  });
+
+  document.querySelectorAll(".submission-form").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var opId = form.getAttribute("data-id");
+      var msg = form.querySelector(".submission-msg");
+      var submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+
+      var formData = new FormData(form);
+      fetch("/hackathons/" + opId + "/submissions", {
+        method: "POST",
+        headers: { "X-CSRFToken": window.CSRF_TOKEN },
+        body: formData,
+      })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          submitBtn.disabled = false;
+          if (result.ok && result.data.ok) {
+            window.location.reload();
+          } else {
+            msg.textContent = (result.data && result.data.error) || "Could not submit this project.";
+            msg.className = "msg err";
+          }
+        })
+        .catch(function () {
+          submitBtn.disabled = false;
+          msg.textContent = "Network error. Please try again.";
+          msg.className = "msg err";
+        });
+    });
+  });
+
+  document.querySelectorAll(".score-save-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var id = button.getAttribute("data-id");
+      var input = document.querySelector('.score-input[data-id="' + id + '"]');
+      if (!input.value) return;
+      button.disabled = true;
+      var formData = new FormData();
+      formData.append("score", input.value);
+      fetch("/submissions/" + id + "/score", { method: "POST", headers: { "X-CSRFToken": window.CSRF_TOKEN }, body: formData })
+        .then(function (response) {
+          return response.json().then(function (data) {
+            return { ok: response.ok, data: data };
+          });
+        })
+        .then(function (result) {
+          button.disabled = false;
+          if (result.ok && result.data.ok) {
+            window.location.reload();
+          } else {
+            window.alert((result.data && result.data.error) || "Could not save the score.");
+          }
+        });
+    });
+  });
+
+  document.querySelectorAll(".submission-delete-btn").forEach(function (button) {
+    button.addEventListener("click", function () {
+      if (!window.confirm("Delete this submission?")) return;
+      button.disabled = true;
+      postJson("/submissions/" + button.getAttribute("data-id") + "/delete").then(function (result) {
+        if (result.ok && result.data.ok) {
+          window.location.reload();
+        } else {
+          button.disabled = false;
+          window.alert((result.data && result.data.error) || "Could not delete this submission.");
+        }
+      });
+    });
+  });
 })();
